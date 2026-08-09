@@ -212,6 +212,8 @@ function buildDropdown(container, options, value, onChange, theme, labelPrefix) 
   toggle.className = "dd-toggle";
   toggle.innerHTML = `<span class="dd-toggle-label">${labelPrefix}${escapeHtml(value)}</span>${iconCaret()}`;
 
+  if (container._ddMenu) container._ddMenu.remove();
+
   const menu = document.createElement("div");
   menu.className = "dd-menu dd-menu-fixed";
   menu.innerHTML = options.map(opt => `
@@ -220,6 +222,7 @@ function buildDropdown(container, options, value, onChange, theme, labelPrefix) 
 
   // Pasang menu ke body agar tidak terpotong overflow/z-index apapun
   document.body.appendChild(menu);
+  container._ddMenu = menu;
   dd.appendChild(toggle);
   container.innerHTML = "";
   container.appendChild(dd);
@@ -399,7 +402,7 @@ function renderKatalog() {
   const kat = STATE.activeKategori;
   const tahun = STATE.activeTahun;
   let items = (STATE.data.konten || []).filter(
-    k => k.Kategori === kat && (!tahun || String(k.Tahun || "").trim() === tahun)
+    k => String(k.Kategori || "").trim() === kat && (!tahun || String(k.Tahun || "").trim() === tahun)
   );
   items = dedupeKontenKeepLast(items);
 

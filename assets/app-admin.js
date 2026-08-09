@@ -30,6 +30,9 @@ function init() {
 }
 
 // ====== DROPDOWN KUSTOM (modern) ======
+// Menu-nya di-mount ke <body> dengan posisi fixed (bukan ditaruh di dalam container),
+// supaya tidak pernah kepotong/ketiban elemen lain (khususnya di layar HP yang sempit
+// dan filter yang berjejer/wrap ke beberapa baris).
 function buildDropdown(container, options, value, onChange, theme, labelPrefix) {
   const dd = document.createElement("div");
   dd.className = `dd ${theme}`;
@@ -41,23 +44,51 @@ function buildDropdown(container, options, value, onChange, theme, labelPrefix) 
   toggle.className = "dd-toggle";
   toggle.innerHTML = `<span class="dd-toggle-label">${labelPrefix}${escHtml(value)}</span>${caret}`;
 
+  // Container ini dipakai ulang tiap kali filter di-render ulang — buang dulu
+  // menu lama (yang sudah dipasang ke body) supaya tidak menumpuk di DOM.
+  if (container._ddMenu) container._ddMenu.remove();
+
   const menu = document.createElement("div");
-  menu.className = "dd-menu";
+  menu.className = "dd-menu dd-menu-fixed";
   menu.innerHTML = options.map(opt => `
     <button type="button" class="dd-option ${opt === value ? "active" : ""}" data-val="${escHtml(opt)}">${labelPrefix}${escHtml(opt)}</button>
   `).join("");
 
+  // Pasang menu ke body supaya posisinya lepas dari overflow/z-index elemen induk
+  document.body.appendChild(menu);
+  container._ddMenu = menu;
   dd.appendChild(toggle);
-  dd.appendChild(menu);
   container.innerHTML = "";
   container.appendChild(dd);
 
-  function closeDd() { dd.classList.remove("open"); }
+  function positionMenu() {
+    const rect = toggle.getBoundingClientRect();
+    const menuWidth = Math.max(rect.width, 170);
+    let left = rect.left;
+    // Jangan sampai menu keluar dari tepi kanan layar (penting di HP)
+    if (left + menuWidth > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - menuWidth - 8);
+    }
+    menu.style.top = (rect.bottom + 8) + "px";
+    menu.style.left = left + "px";
+    menu.style.minWidth = menuWidth + "px";
+  }
+
+  function closeDd() {
+    dd.classList.remove("open");
+    menu.classList.remove("open");
+  }
+  function openDd() {
+    positionMenu();
+    dd.classList.add("open");
+    menu.classList.add("open");
+  }
   toggle.addEventListener("click", e => {
     e.stopPropagation();
     const willOpen = !dd.classList.contains("open");
     document.querySelectorAll(".dd.open").forEach(el => el.classList.remove("open"));
-    if (willOpen) dd.classList.add("open");
+    document.querySelectorAll(".dd-menu-fixed.open").forEach(el => el.classList.remove("open"));
+    if (willOpen) openDd();
   });
   menu.querySelectorAll(".dd-option").forEach(btn => {
     btn.addEventListener("click", e => {
@@ -66,7 +97,11 @@ function buildDropdown(container, options, value, onChange, theme, labelPrefix) 
       onChange(btn.dataset.val);
     });
   });
-  document.addEventListener("click", closeDd);
+  document.addEventListener("click", e => {
+    if (!dd.contains(e.target) && !menu.contains(e.target)) closeDd();
+  });
+  window.addEventListener("resize", () => { if (dd.classList.contains("open")) positionMenu(); });
+  window.addEventListener("scroll", () => { if (dd.classList.contains("open")) positionMenu(); }, true);
 }
 
 // Pesan status utama di atas "Daftar Karya Tersimpan" — berganti sesuai aksi terakhir
@@ -393,7 +428,7 @@ function populateFilterKategoriAdmin(items) {
   const filtered = ADMIN_FILTER_TAHUN === "Semua Tahun" || !ADMIN_FILTER_TAHUN
     ? items : items.filter(i => String(i.Tahun || "").trim() === ADMIN_FILTER_TAHUN);
   const KATEGORI_ORDER = ["Infografis", "Videografis", "Leaflet", "Join Riset"];
-  const available = KATEGORI_ORDER.filter(k => filtered.some(i => i.Kategori === k));
+  const available = KATEGORI_ORDER.filter(k => filtered.some(i => String(i.Kategori || "").trim() === k));
   const options = ["Semua Kategori", ...available];
   if (!options.includes(ADMIN_FILTER_KATEGORI)) ADMIN_FILTER_KATEGORI = "Semua Kategori";
   buildDropdown(container, options, ADMIN_FILTER_KATEGORI, (val) => {
@@ -431,7 +466,7 @@ function getFilteredItems() {
     ? LAST_KONTEN_ITEMS
     : LAST_KONTEN_ITEMS.filter(i => String(i.Tahun || "").trim() === ADMIN_FILTER_TAHUN);
   if (ADMIN_FILTER_KATEGORI && ADMIN_FILTER_KATEGORI !== "Semua Kategori") {
-    items = items.filter(i => i.Kategori === ADMIN_FILTER_KATEGORI);
+    items = items.filter(i => String(i.Kategori || "").trim() === ADMIN_FILTER_KATEGORI);
   }
   if (ADMIN_FILTER_SERI && ADMIN_FILTER_SERI !== "Semua Seri") {
     items = items.filter(i => String(i.Seri || "").trim() === ADMIN_FILTER_SERI);
@@ -659,7 +694,7 @@ function getMonitorMatches() {
   return LAST_KONTEN_ITEMS.filter(
     i =>
       String(i.Tahun || "").trim() === ADMIN_FILTER_TAHUN &&
-      i.Kategori === ADMIN_FILTER_KATEGORI &&
+      String(i.Kategori || "").trim() === ADMIN_FILTER_KATEGORI &&
       String(i.Seri || "").trim() === ADMIN_FILTER_SERI
   );
 }
