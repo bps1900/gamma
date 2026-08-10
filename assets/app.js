@@ -1059,6 +1059,7 @@ async function submitComment(item) {
 
     STATE.data.comments = STATE.data.comments || [];
     STATE.data.comments.push({
+      ID: json.id,
       KaryaId: item.ID,
       NIP: user.nip,
       Nama: user.nama,
