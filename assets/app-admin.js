@@ -353,6 +353,15 @@ document.getElementById("btn-add-pegawai").addEventListener("click", async () =>
     msg.className = "status-msg err";
     return;
   }
+  msg.textContent = "";
+  // Loading state pada tombol + kunci input selama proses, supaya jelas
+  // kalau lagi diproses dan tidak bisa diklik dobel.
+  const btn = document.getElementById("btn-add-pegawai");
+  const originalBtnHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="like-spinner"></span> Menyimpan...`;
+  document.getElementById("f-pegawai").disabled = true;
+  document.getElementById("f-nip").disabled = true;
   try {
     const json = await postApi({ action: "addPegawai", secret: ADMIN_SECRET_INPUT, nama, nip });
     if (json.error) throw new Error(json.error);
@@ -360,10 +369,15 @@ document.getElementById("btn-add-pegawai").addEventListener("click", async () =>
     msg.className = "status-msg ok";
     document.getElementById("f-pegawai").value = "";
     document.getElementById("f-nip").value = "";
-    loadPegawaiTable();
+    await loadPegawaiTable();
   } catch (err) {
     msg.textContent = err.message;
     msg.className = "status-msg err";
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalBtnHtml;
+    document.getElementById("f-pegawai").disabled = false;
+    document.getElementById("f-nip").disabled = false;
   }
 });
 
@@ -600,7 +614,7 @@ async function loadPegawaiTable() {
       </div>
     `;
     wrap.querySelectorAll(".del-btn").forEach(btn => {
-      btn.addEventListener("click", () => deletePegawai(btn.dataset.nip));
+      btn.addEventListener("click", () => deletePegawai(btn.dataset.nip, btn));
     });
   } catch (err) {
     wrap.innerHTML = `<p class="status-msg err">${err.message}</p>`;
@@ -609,13 +623,27 @@ async function loadPegawaiTable() {
 
 // ====== DELETE ======
 
-async function deletePegawai(nip) {
+async function deletePegawai(nip, btn) {
   if (!confirm("Hapus pegawai ini?")) return;
+  // Tampilkan loading state di tombol & redupkan card selama proses hapus
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="like-spinner"></span>`;
+    const card = btn.closest(".admin-card");
+    if (card) card.style.opacity = "0.5";
+  }
   try {
     const json = await postApi({ action: "deletePegawai", secret: ADMIN_SECRET_INPUT, nip });
     if (json.error) throw new Error(json.error);
-    loadPegawaiTable();
+    await loadPegawaiTable();
   } catch (err) {
+    // Restore tombol & card jika gagal
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = "Hapus";
+      const card = btn.closest(".admin-card");
+      if (card) card.style.opacity = "";
+    }
     alert(err.message);
   }
 }
@@ -682,28 +710,18 @@ document.getElementById("btn-monitor-like").addEventListener("click", () => {
   }
 });
 
-// Ikuti filter Tahun/Kategori/Seri yang sama dengan panel "Daftar Karya Tersimpan"
+// Ikuti filter Tahun/Kategori/Seri yang sama dengan panel "Daftar Karya Tersimpan".
+// Setiap filter dicek independen: kalau masih "Semua ..." berarti tidak membatasi
+// (ikutkan semua), kalau sudah dipilih spesifik baru dipakai untuk menyaring.
+// Minimal Tahun harus dipilih supaya tidak sengaja menghitung seluruh database.
 function getMonitorMatches() {
-  if (
-    ADMIN_FILTER_TAHUN === "Semua Tahun" ||
-    ADMIN_FILTER_KATEGORI === "Semua Kategori" ||
-    ADMIN_FILTER_SERI === "Semua Seri"
-  ) {
-    return [];
-  }
-  return LAST_KONTEN_ITEMS.filter(
-    i =>
-      String(i.Tahun || "").trim() === ADMIN_FILTER_TAHUN &&
-      String(i.Kategori || "").trim() === ADMIN_FILTER_KATEGORI &&
-      String(i.Seri || "").trim() === ADMIN_FILTER_SERI
-  );
-}
-
-// Versi untuk tampilan Zoom: semua Kategori & Seri digabung, hanya butuh Tahun.
-// Dipakai supaya SS bisa langsung mencakup seluruh karya di tahun tsb.
-function getMonitorMatchesForYear(tahun) {
-  if (!tahun || tahun === "Semua Tahun") return [];
-  return LAST_KONTEN_ITEMS.filter(i => String(i.Tahun || "").trim() === tahun);
+  if (ADMIN_FILTER_TAHUN === "Semua Tahun") return [];
+  return LAST_KONTEN_ITEMS.filter(i => {
+    if (String(i.Tahun || "").trim() !== ADMIN_FILTER_TAHUN) return false;
+    if (ADMIN_FILTER_KATEGORI !== "Semua Kategori" && String(i.Kategori || "").trim() !== ADMIN_FILTER_KATEGORI) return false;
+    if (ADMIN_FILTER_SERI !== "Semua Seri" && String(i.Seri || "").trim() !== ADMIN_FILTER_SERI) return false;
+    return true;
+  });
 }
 
 async function loadMonitorData() {
@@ -805,11 +823,11 @@ async function renderMonitorResult() {
   const matches = getMonitorMatches();
 
   if (zoomBtn) {
-    zoomBtn.style.display = ADMIN_FILTER_TAHUN !== "Semua Tahun" ? "inline-flex" : "none";
+    zoomBtn.style.display = matches.length > 0 ? "inline-flex" : "none";
   }
 
   if (matches.length === 0) {
-    wrap.innerHTML = `<p style="color:var(--abu); font-size:13px; padding:24px 6px; text-align:center;">Pilih Tahun, Kategori, dan Seri di panel Daftar Karya untuk melihat siapa saja yang belum like.</p>`;
+    wrap.innerHTML = `<p style="color:var(--abu); font-size:13px; padding:24px 6px; text-align:center;">Pilih Tahun di panel Daftar Karya untuk melihat siapa saja yang belum like.</p>`;
     return;
   }
 
@@ -835,7 +853,9 @@ async function openMonitorZoom() {
   const overlay = document.getElementById("monitor-zoom-overlay");
   const body = document.getElementById("monitor-zoom-body");
   const sub = document.getElementById("monitor-zoom-sub");
-  const label = `Semua Kategori · Semua Seri · ${ADMIN_FILTER_TAHUN}`;
+  // Ikuti filter Tahun/Kategori/Seri yang sedang aktif di panel Daftar Karya
+  // (sama seperti panel Monitoring biasa) — bukan digabung semua kategori/seri.
+  const label = `${ADMIN_FILTER_KATEGORI} · Seri ${ADMIN_FILTER_SERI} · ${ADMIN_FILTER_TAHUN}`;
 
   sub.textContent = label;
   body.innerHTML = `<div class="monitor-loading"><span class="spinner"></span> Memuat data like...</div>`;
@@ -847,7 +867,7 @@ async function openMonitorZoom() {
   document.body.classList.add("zoom-screenshot-mode");
 
   try {
-    const matches = getMonitorMatchesForYear(ADMIN_FILTER_TAHUN);
+    const matches = getMonitorMatches();
     const json = await loadMonitorData();
     body.innerHTML = buildMonitorHtml(json, matches, label);
   } catch (err) {
