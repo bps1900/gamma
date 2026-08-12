@@ -444,7 +444,13 @@ function renderKatalog() {
   // ada like (semua 0), urutannya otomatis tidak berubah dari urutan aslinya.
   const isLikeSortKategori = kat === "Infografis" || kat === "Leaflet";
   if (isLikeSortKategori) {
-    activeItems = [...activeItems].sort((a, b) => likeCountFor(b.ID) - likeCountFor(a.ID));
+    // Urutkan berdasarkan like terbanyak. Kalau like-nya SAMA, jadikan jumlah
+    // komentar sebagai pembanding kedua (komentar lebih banyak -> naik ke atas).
+    activeItems = [...activeItems].sort((a, b) => {
+      const likeDiff = likeCountFor(b.ID) - likeCountFor(a.ID);
+      if (likeDiff !== 0) return likeDiff;
+      return commentsFor(b.ID).length - commentsFor(a.ID).length;
+    });
   }
 
   main.innerHTML = `
@@ -539,9 +545,10 @@ function refreshTop3Header() {
 // Isi Top 3 like terbanyak untuk satu seri (emas/perak/perunggu) — selalu 3 slot tetap, tidak pernah berubah tinggi
 function top3PanelInner(seriItems) {
   const ranked = [...seriItems]
-    .map(item => ({ item, likes: likeCountFor(item.ID) }))
+    .map(item => ({ item, likes: likeCountFor(item.ID), comments: commentsFor(item.ID).length }))
     .filter(r => r.likes > 0)
-    .sort((a, b) => b.likes - a.likes)
+    // Like terbanyak menang. Kalau like SAMA, yang komentarnya lebih banyak naik ke atas.
+    .sort((a, b) => (b.likes - a.likes) || (b.comments - a.comments))
     .slice(0, 3);
 
   const medalClasses = ["gold", "silver", "bronze"];
