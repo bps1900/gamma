@@ -942,6 +942,9 @@ function renderSettingsTahunDropdown() {
   if (!years.includes(SETTINGS_FORM.tahun)) SETTINGS_FORM.tahun = years[0];
   buildDropdown(container, years, SETTINGS_FORM.tahun, (val) => {
     SETTINGS_FORM.tahun = val;
+    // Render ulang dropdown Tahun sendiri supaya labelnya ikut menampilkan pilihan
+    // terbaru (tanpa ini, teks di kotak dropdown tidak berubah walau sudah diklik).
+    renderSettingsTahunDropdown();
     KATEGORI_SETTING_LIST.forEach(renderSettingsSeriDropdown);
   }, "light", "Tahun ");
 }
@@ -968,6 +971,9 @@ function renderSettingsSeriDropdown(kategori) {
 
   buildDropdown(container, seriList, current, (val) => {
     SETTINGS_FORM.seriByKategori[kategori] = val;
+    // Render ulang dropdown ini sendiri supaya labelnya langsung menampilkan seri
+    // yang baru dipilih (tanpa ini, teks di kotak dropdown tidak berubah).
+    renderSettingsSeriDropdown(kategori);
   }, "light", "Seri ");
 }
 
