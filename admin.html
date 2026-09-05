@@ -20,6 +20,7 @@
     </div>
   </div>
   <div class="header-actions">
+    <button id="btn-open-settings">⚙ Tampilan Awal</button>
     <a href="index.html">Lihat Galeri</a>
     <button id="btn-logout">Logout</button>
   </div>
@@ -195,6 +196,57 @@
     </div>
   </div>
 
+</div>
+
+<!-- MODAL: Pengaturan Tampilan Awal Galeri -->
+<div class="modal-overlay" id="settings-modal-overlay">
+  <div class="modal-box kf-modal" style="width:min(560px, 100%);">
+    <div class="kf-header">
+      <div class="kf-header-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg>
+      </div>
+      <div class="kf-header-text">
+        <h3>Tampilan Awal Galeri</h3>
+        <p>Atur tahun &amp; seri yang otomatis terbuka saat pengunjung pertama membuka galeri</p>
+      </div>
+      <button class="modal-close" id="settings-modal-close">&times;</button>
+    </div>
+    <div class="kf-body">
+      <div class="kf-section-label">Tahun Default</div>
+      <div class="kf-grid kf-grid-1" style="margin-bottom:16px;">
+        <div id="settings-tahun-wrap"></div>
+      </div>
+
+      <div class="kf-section-label">Seri Default per Kategori</div>
+      <p style="margin:-4px 0 12px; font-size:12px; color:var(--abu);">Pengunjung yang membuka kategori ini akan langsung diarahkan ke seri yang dipilih di bawah.</p>
+      <div class="kf-grid" id="settings-seri-grid">
+        <div class="kf-field">
+          <label>Infografis</label>
+          <div id="settings-seri-Infografis"></div>
+        </div>
+        <div class="kf-field">
+          <label>Videografis</label>
+          <div id="settings-seri-Videografis"></div>
+        </div>
+        <div class="kf-field">
+          <label>Leaflet</label>
+          <div id="settings-seri-Leaflet"></div>
+        </div>
+        <div class="kf-field">
+          <label>Join Riset</label>
+          <div id="settings-seri-JoinRiset"></div>
+        </div>
+      </div>
+
+      <div class="kf-footer">
+        <p class="status-msg" id="settings-msg"></p>
+        <div class="kf-footer-btns">
+          <button class="kf-btn kf-btn-outline" id="btn-settings-cancel">Batal</button>
+          <button class="kf-btn kf-btn-primary" id="btn-settings-save">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="monitor-zoom-overlay">

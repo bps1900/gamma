@@ -389,6 +389,7 @@ async function loadKontenTable() {
     const res = await fetch(`${API_URL}?action=getData`);
     const json = await res.json();
     if (json.error) throw new Error(json.error);
+    CURRENT_SETTINGS = json.settings || { tahun: "", seriByKategori: {} };
     LAST_KONTEN_ITEMS = dedupeKontenKeepLast(json.konten || []);
     populateAllFilters();
     renderKontenTable();
@@ -406,6 +407,7 @@ async function fadeReloadKontenTable() {
     const res = await fetch(`${API_URL}?action=getData`);
     const json = await res.json();
     if (json.error) throw new Error(json.error);
+    CURRENT_SETTINGS = json.settings || { tahun: "", seriByKategori: {} };
     LAST_KONTEN_ITEMS = dedupeKontenKeepLast(json.konten || []);
     populateAllFilters();
     renderKontenTable();
@@ -890,3 +892,113 @@ async function postApi(payload) {
 function val(id) {
   return document.getElementById(id).value.trim();
 }
+
+// ====== PENGATURAN TAMPILAN AWAL GALERI ======
+// Admin bisa menentukan tahun default & seri default per kategori yang otomatis
+// terbuka saat pengunjung membuka galeri, supaya pengunjung langsung diarahkan
+// ke karya yang paling butuh like.
+const KATEGORI_SETTING_LIST = ["Infografis", "Videografis", "Leaflet", "Join Riset"];
+// Mapping kategori -> id elemen DOM (karena id HTML tidak boleh/aman pakai spasi)
+const KATEGORI_SETTING_DOM_ID = {
+  "Infografis": "settings-seri-Infografis",
+  "Videografis": "settings-seri-Videografis",
+  "Leaflet": "settings-seri-Leaflet",
+  "Join Riset": "settings-seri-JoinRiset"
+};
+let CURRENT_SETTINGS = { tahun: "", seriByKategori: {} };
+let SETTINGS_FORM = { tahun: "", seriByKategori: {} };
+
+const settingsOverlay = document.getElementById("settings-modal-overlay");
+
+document.getElementById("btn-open-settings").addEventListener("click", openSettingsModal);
+document.getElementById("settings-modal-close").addEventListener("click", closeSettingsModal);
+document.getElementById("btn-settings-cancel").addEventListener("click", closeSettingsModal);
+settingsOverlay.addEventListener("click", e => { if (e.target === settingsOverlay) closeSettingsModal(); });
+
+function openSettingsModal() {
+  SETTINGS_FORM = {
+    tahun: CURRENT_SETTINGS.tahun || "",
+    seriByKategori: { ...(CURRENT_SETTINGS.seriByKategori || {}) }
+  };
+  renderSettingsTahunDropdown();
+  KATEGORI_SETTING_LIST.forEach(renderSettingsSeriDropdown);
+  document.getElementById("settings-msg").textContent = "";
+  settingsOverlay.classList.add("open");
+}
+
+function closeSettingsModal() {
+  settingsOverlay.classList.remove("open");
+}
+
+function renderSettingsTahunDropdown() {
+  const container = document.getElementById("settings-tahun-wrap");
+  const years = [...new Set(LAST_KONTEN_ITEMS.map(i => String(i.Tahun || "").trim()).filter(Boolean))]
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  if (years.length === 0) {
+    container.innerHTML = `<p style="font-size:12.5px; color:var(--abu);">Belum ada data tahun. Tambahkan karya terlebih dahulu.</p>`;
+    SETTINGS_FORM.tahun = "";
+    return;
+  }
+  if (!years.includes(SETTINGS_FORM.tahun)) SETTINGS_FORM.tahun = years[0];
+  buildDropdown(container, years, SETTINGS_FORM.tahun, (val) => {
+    SETTINGS_FORM.tahun = val;
+    KATEGORI_SETTING_LIST.forEach(renderSettingsSeriDropdown);
+  }, "light", "Tahun ");
+}
+
+function renderSettingsSeriDropdown(kategori) {
+  const container = document.getElementById(KATEGORI_SETTING_DOM_ID[kategori]);
+  if (!container) return;
+  const seriList = [...new Set(
+    LAST_KONTEN_ITEMS
+      .filter(i => String(i.Tahun || "").trim() === SETTINGS_FORM.tahun && String(i.Kategori || "").trim() === kategori)
+      .map(i => String(i.Seri || "").trim())
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  if (seriList.length === 0) {
+    container.innerHTML = `<p style="font-size:12px; color:var(--abu); margin:8px 0 0;">Belum ada karya di tahun ini</p>`;
+    delete SETTINGS_FORM.seriByKategori[kategori];
+    return;
+  }
+
+  let current = SETTINGS_FORM.seriByKategori[kategori];
+  if (!seriList.includes(current)) current = seriList[0];
+  SETTINGS_FORM.seriByKategori[kategori] = current;
+
+  buildDropdown(container, seriList, current, (val) => {
+    SETTINGS_FORM.seriByKategori[kategori] = val;
+  }, "light", "Seri ");
+}
+
+document.getElementById("btn-settings-save").addEventListener("click", async () => {
+  const msg = document.getElementById("settings-msg");
+  const btn = document.getElementById("btn-settings-save");
+  if (!SETTINGS_FORM.tahun) {
+    msg.textContent = "Belum ada tahun yang bisa dipilih.";
+    msg.className = "status-msg err";
+    return;
+  }
+  btn.disabled = true;
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = `<span class="like-spinner"></span> Menyimpan...`;
+  try {
+    const json = await postApi({
+      action: "saveSettings",
+      secret: ADMIN_SECRET_INPUT,
+      tahun: SETTINGS_FORM.tahun,
+      seriByKategori: SETTINGS_FORM.seriByKategori
+    });
+    if (json.error) throw new Error(json.error);
+    CURRENT_SETTINGS = { tahun: SETTINGS_FORM.tahun, seriByKategori: { ...SETTINGS_FORM.seriByKategori } };
+    msg.textContent = "Tersimpan. Galeri akan membuka tampilan ini secara default.";
+    msg.className = "status-msg ok";
+    setTimeout(closeSettingsModal, 700);
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = "status-msg err";
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+});

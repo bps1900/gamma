@@ -11,7 +11,9 @@ const KATEGORI = [
 let STATE = {
   data: null,
   activeKategori: KATEGORI[0].key,
-  activeTahun: null // diisi otomatis dengan tahun terbaru dari database setelah data dimuat
+  activeTahun: null, // diisi otomatis dengan tahun terbaru dari database setelah data dimuat, atau tahun default dari Admin
+  seriByKategori: {}, // seri default per kategori, dari pengaturan Admin
+  activeSeriMap: {} // seri yang sedang aktif per kategori (diingat per kategori supaya tidak reset saat pindah tab)
 };
 
 // Google Apps Script Web App punya batas eksekusi paralel — kalau banyak orang
@@ -322,6 +324,7 @@ async function loadData() {
   renderLoading();
   try {
     STATE.data = await getDataRetry();
+    applyDefaultSettings();
     renderYearFilter();
     renderMain();
   } catch (err) {
@@ -330,6 +333,21 @@ async function loadData() {
         Gagal memuat data. Pastikan API_URL di assets/app.js sudah diisi dengan URL Web App Apps Script yang benar.<br>
         <small>${err.message}</small>
       </div>`;
+  }
+}
+
+// Terapkan pengaturan "Tampilan Awal" yang diatur Admin (tahun default & seri default
+// per kategori), supaya pengunjung baru langsung diarahkan ke karya yang paling butuh like.
+// Kalau pengunjung sudah pernah memilih tahun/seri lain dalam sesi ini, pengaturan default
+// tidak akan menimpa pilihan mereka (fungsi ini hanya dipanggil sekali saat data pertama dimuat).
+function applyDefaultSettings() {
+  const settings = (STATE.data && STATE.data.settings) || {};
+  STATE.seriByKategori = settings.seriByKategori || {};
+  if (settings.tahun) {
+    const years = getAvailableYears();
+    if (years.includes(String(settings.tahun))) {
+      STATE.activeTahun = String(settings.tahun);
+    }
   }
 }
 
@@ -412,15 +430,18 @@ function renderKatalog() {
   const itemsBySeri = {};
   seriList.forEach(seri => { itemsBySeri[seri] = items.filter(i => String(i.Seri || "").trim() === seri); });
 
-  // Seri yang sedang aktif/ditampilkan. Pertahankan pilihan sebelumnya kalau masih
-  // relevan (masih ada di kategori/tahun ini), kalau tidak jatuhkan ke seri pertama.
-  // (activeSeri selalu disimpan sebagai string, karena berasal dari data-seri di HTML.)
-  if (!STATE.activeSeri || !seriList.includes(String(STATE.activeSeri))) {
-    STATE.activeSeri = seriList[0] || null;
-  } else {
-    STATE.activeSeri = String(STATE.activeSeri);
+  // Seri yang sedang aktif/ditampilkan, diingat PER KATEGORI (supaya pindah kategori
+  // tidak saling menimpa pilihan seri). Urutan prioritas:
+  // 1) Seri yang sudah pernah dipilih user untuk kategori ini dalam sesi ini (kalau masih relevan)
+  // 2) Seri default yang diatur Admin untuk kategori ini (kalau ada & relevan)
+  // 3) Seri pertama yang tersedia
+  let activeSeri = STATE.activeSeriMap[kat] ? String(STATE.activeSeriMap[kat]) : null;
+  if (!activeSeri || !seriList.includes(activeSeri)) {
+    const preferred = STATE.seriByKategori[kat] ? String(STATE.seriByKategori[kat]) : null;
+    activeSeri = (preferred && seriList.includes(preferred)) ? preferred : (seriList[0] || null);
   }
-  const activeSeri = STATE.activeSeri;
+  STATE.activeSeriMap[kat] = activeSeri;
+  STATE.activeSeri = activeSeri;
   let activeItems = activeSeri ? (itemsBySeri[activeSeri] || []) : [];
 
   // Untuk Videografis & Join Riset, urutkan berdasarkan nomor kelompok (menaik).
@@ -495,6 +516,7 @@ function renderKatalog() {
   main.querySelectorAll(".seri-tab").forEach(tab => {
     tab.addEventListener("click", () => {
       if (tab.dataset.seri === STATE.activeSeri) return;
+      STATE.activeSeriMap[kat] = tab.dataset.seri;
       STATE.activeSeri = tab.dataset.seri;
       renderKatalog();
       main.scrollTo({ top: 0, behavior: "smooth" });
