@@ -76,6 +76,11 @@ function iconComment() {
 function iconCaret() {
   return `<svg class="dd-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`;
 }
+// Badge bubble tanda seru, dipakai untuk menandai Seri yang jadi default Admin
+// (supaya pengunjung tahu seri mana yang paling butuh like/perhatian).
+function iconExclaim() {
+  return `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 4a2 2 0 0 1 2-2h11.5L21 5.5V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><rect x="10.2" y="7" width="3.6" height="7" rx="1.6" fill="#fff"/><rect x="10.2" y="15.4" width="3.6" height="3" rx="1.5" fill="#fff"/></svg>`;
+}
 
 // ====== INIT ======
 document.addEventListener("DOMContentLoaded", () => {
@@ -484,7 +489,16 @@ function renderKatalog() {
               ? `<div class="seri-tabs">
                   ${seriList
                     .map(
-                      seri => `<button class="seri-tab ${seri === String(activeSeri) ? "active" : ""}" data-seri="${escapeHtml(seri)}">Seri ${escapeHtml(seri)}</button>`
+                      seri => {
+                        // Tandai seri yang jadi default pilihan Admin (Tampilan Awal) dengan
+                        // badge tanda seru, supaya pengunjung langsung ngeh karya mana yang
+                        // paling perlu di-like/dilihat — tanpa mengganggu tab lain.
+                        const isDefaultSeri = STATE.seriByKategori[kat] && String(STATE.seriByKategori[kat]) === seri;
+                        return `<button class="seri-tab ${seri === String(activeSeri) ? "active" : ""}" data-seri="${escapeHtml(seri)}">
+                          Seri ${escapeHtml(seri)}
+                          ${isDefaultSeri ? `<span class="seri-tab-badge" title="Seri yang sedang butuh perhatian">${iconExclaim()}</span>` : ""}
+                        </button>`;
+                      }
                     )
                     .join("")}
                 </div>`
