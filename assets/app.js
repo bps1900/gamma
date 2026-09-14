@@ -938,15 +938,16 @@ function openModal(id) {
 // dan dikasih tombol Edit/Hapus.
 function commentItemHtml(c, user) {
   const mine = !!(user && String(c.NIP) === String(user.nip));
+  const isPending = String(c.ID).startsWith("temp-"); // masih dikirim ke server, belum dapat ID asli
   return `
     <div class="comment-item" data-comment-id="${c.ID}">
       <div class="c-head">
         <span class="c-name">💬 ${mine ? "Anda" : "Pegawai"}</span>
-        <span class="c-time">${timeAgo(c.Waktu)}</span>
+        <span class="c-time">${isPending ? "Mengirim..." : timeAgo(c.Waktu)}</span>
       </div>
       <p class="c-text" id="c-text-${c.ID}">${escapeHtml(c.Text)}</p>
       ${
-        mine
+        mine && !isPending
           ? `<div class="c-actions">
               <button class="c-edit-btn" data-id="${c.ID}">Edit</button>
               <button class="c-del-btn" data-id="${c.ID}">Hapus</button>
@@ -1186,13 +1187,37 @@ async function submitComment(item) {
     return;
   }
 
-  const btn = document.getElementById("btn-comment");
-  const originalBtnHtml = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = `<span class="like-spinner"></span> Mengirim...`;
   msg.textContent = "";
   msg.className = "status-msg";
-  textarea.disabled = true;
+
+  // ====== OPTIMISTIC UPDATE ======
+  // Langsung tampilkan komentarnya SEKARANG JUGA (pakai ID sementara), tanpa
+  // nunggu server bales dulu, supaya kirim komen terasa instan. Request ke
+  // server tetap jalan di belakang layar; kalau ternyata gagal, baru komen
+  // optimistik ini dicabut lagi + user dikasih tau lewat pesan error.
+  const tempId = "temp-" + Date.now();
+  const optimisticComment = {
+    ID: tempId,
+    KaryaId: item.ID,
+    NIP: user.nip,
+    Nama: user.nama,
+    Text: text,
+    Waktu: new Date().toISOString()
+  };
+  STATE.data.comments = STATE.data.comments || [];
+  STATE.data.comments.push(optimisticComment);
+
+  textarea.value = "";
+  openModal(item.ID); // re-render langsung, komentar baru sudah kelihatan
+  renderKatalog(); // sinkronkan jumlah komentar di kartu galeri belakang layar
+
+  // Tandai kartu komentar ini sebagai "sedang dikirim" (opacity redup + label kecil)
+  const tempCard = document.querySelector(`.comment-item[data-comment-id="${tempId}"]`);
+  if (tempCard) {
+    tempCard.style.opacity = "0.55";
+    const timeEl = tempCard.querySelector(".c-time");
+    if (timeEl) timeEl.textContent = "Mengirim...";
+  }
 
   try {
     const json = await postApiRetry({
@@ -1204,25 +1229,28 @@ async function submitComment(item) {
     });
     if (json.error) throw new Error(json.error);
 
-    STATE.data.comments = STATE.data.comments || [];
-    STATE.data.comments.push({
-      ID: json.id,
-      KaryaId: item.ID,
-      NIP: user.nip,
-      Nama: user.nama,
-      Text: text,
-      Waktu: new Date().toISOString()
-    });
-    textarea.value = "";
-    msg.textContent = "";
-    openModal(item.ID); // re-render dengan komentar terbaru
-    renderKatalog(); // sinkronkan jumlah komentar di kartu galeri belakang layar
+    // Ganti ID sementara dengan ID asli dari server
+    const c = STATE.data.comments.find(cm => cm.ID === tempId);
+    if (c) c.ID = json.id;
+
+    // Kalau modal komentar ini masih terbuka, refresh biar ID & waktunya rapi
+    // (tanpa animasi loading lagi karena datanya sudah ada, cuma re-render ringan)
+    const stillOpen = document.getElementById("comment-list");
+    if (stillOpen) openModal(item.ID);
   } catch (err) {
-    // Kembalikan tombol & textarea ke kondisi semula supaya user bisa coba lagi
-    btn.disabled = false;
-    btn.innerHTML = originalBtnHtml;
-    textarea.disabled = false;
+    // Gagal -> cabut lagi komentar optimistik tadi & kasih tau error-nya
+    STATE.data.comments = STATE.data.comments.filter(cm => cm.ID !== tempId);
     msg.textContent = err.message;
     msg.className = "status-msg err";
+    const stillOpen = document.getElementById("comment-list");
+    if (stillOpen) {
+      openModal(item.ID);
+      const msgAfter = document.getElementById("comment-msg");
+      if (msgAfter) {
+        msgAfter.textContent = err.message;
+        msgAfter.className = "status-msg err";
+      }
+    }
+    renderKatalog();
   }
 }
