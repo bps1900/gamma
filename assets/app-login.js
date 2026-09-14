@@ -109,3 +109,11 @@ document.getElementById("btn-login-unified").addEventListener("click", doLogin);
 document.getElementById("login-input").addEventListener("keydown", e => {
   if (e.key === "Enter") doLogin();
 });
+
+// Jaga-jaga di HP: begitu keyboard muncul (input NIP di-fokus), pastikan
+// kotak login tetap kelihatan penuh (tidak ketutup/mepet keyboard).
+document.getElementById("login-input").addEventListener("focus", () => {
+  setTimeout(() => {
+    document.getElementById("login-input").scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 250);
+});

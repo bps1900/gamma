@@ -25,6 +25,12 @@ html, body {
   color: var(--tinta);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  /* Cegah halaman melebar ke samping (root penyebab kenapa harus di-zoom-out
+     manual di HP untuk lihat header dengan utuh). Dengan ini, kalau ada elemen
+     yang kebetulan sedikit lebih lebar dari layar, dia akan dipotong/menyesuaikan
+     alih-alih membuat SELURUH halaman jadi bisa di-scroll ke samping. */
+  overflow-x: hidden;
+  width: 100%;
 }
 
 a { color: inherit; }
@@ -1565,39 +1571,70 @@ body.zoom-screenshot-mode #monitor-zoom-body {
 
   /* Main */
   .main { padding: 0 14px 56px; overflow-y: visible; }
+  /* PENTING: sebelumnya .katalog-header ikut "position: sticky; top:0" sama
+     seperti .sidebar (baris kategori Infografis/Videografis/dst) di atasnya.
+     Kalau dua-duanya nempel di posisi yang sama, hasilnya saling tumpuk/
+     terpotong pas discroll (efek "freeze" yang keliatan berantakan). Sekarang
+     dibuat statis (scroll biasa) — cukup baris kategori saja yang nempel di
+     atas, biar rapi dan tidak dobel. */
   .katalog-header {
-    top: 0;
+    position: static;
+    top: auto;
     padding-top: 14px;
     padding-bottom: 4px;
   }
 
   /* Header */
   .app-header {
-    padding: 12px 16px;
+    padding: 10px 12px;
     flex-wrap: nowrap;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
   }
   .header-left {
     flex-wrap: nowrap;
-    gap: 8px;
+    gap: 6px;
     flex: 1;
     min-width: 0;
   }
-  .brand { gap: 8px; min-width: 0; }
-  .brand-logo { width: 30px; height: 30px; }
-  .brand-text { min-width: 0; }
-  .brand-text h1 { font-size: 15px; white-space: nowrap; }
+  .brand { gap: 6px; min-width: 0; flex-shrink: 1; }
+  .brand-logo { width: 26px; height: 26px; flex-shrink: 0; }
+  .brand-text { min-width: 0; overflow: hidden; }
+  .brand-text h1 {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .brand-text p { display: none; } /* sembunyikan subtitle di HP */
-  .header-year { flex-shrink: 0; }
-  .header-actions { gap: 6px; flex-shrink: 0; }
+  /* Dropdown Tahun: batasi lebar maksimal supaya tidak mendorong tombol Login
+     keluar layar (ini penyebab utama header "meluber" & harus di-zoom-out). */
+  .header-year { flex-shrink: 1; min-width: 0; max-width: 40vw; }
+  .header-year .dd-toggle { max-width: 100%; }
+  .header-actions { gap: 4px; flex-shrink: 0; }
   .header-actions a, .header-actions button {
-    font-size: 12px;
-    padding: 8px 12px;
-    min-height: 38px;
+    font-size: 11.5px;
+    padding: 7px 10px;
+    min-height: 36px;
+    white-space: nowrap;
   }
   .header-user { display: none; } /* "Halo, Nama" disembunyikan, cukup tombol Logout */
-  .dd.header .dd-toggle { font-size: 12px; padding: 8px 12px; }
+  .dd.header .dd-toggle {
+    font-size: 11.5px;
+    padding: 7px 10px;
+    gap: 5px;
+  }
+  .dd.header .dd-caret { width: 12px; height: 12px; }
+}
+
+/* Layar sangat sempit (HP kecil, <380px) — perkecil lagi supaya tetap muat
+   satu baris tanpa memicu overflow horizontal. */
+@media (max-width: 380px) {
+  .brand-logo { width: 22px; height: 22px; }
+  .brand-text h1 { font-size: 12.5px; }
+  .header-year { max-width: 34vw; }
+  .dd.header .dd-toggle { font-size: 10.5px; padding: 6px 8px; }
+  .header-actions a, .header-actions button { font-size: 10.5px; padding: 6px 8px; min-height: 32px; }
 
   /* Section title & top3 */
   .section-title { padding-right: 0; flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -1647,16 +1684,31 @@ body.zoom-screenshot-mode #monitor-zoom-body {
   .comment-item .c-text { font-size: 13px; }
   .login-required { margin: 0 16px 14px; font-size: 12px; }
 
-  /* Login overlay jadi bottom sheet di HP */
-  #login-overlay { padding: 0; align-items: flex-end; }
+  /* Login overlay di HP: PENTING — sebelumnya ini dibuat "bottom sheet" (nempel
+     ke bawah layar). Masalahnya, begitu keyboard muncul, kotak login jadi
+     ketutup/mepet keyboard karena posisinya memang di bagian paling bawah.
+     Sekarang dipindah ke ATAS layar (align-items: flex-start) dan dikasih
+     scroll sendiri (max-height + overflow-y auto), supaya walau keyboard HP
+     muncul dan mengambil separuh layar, kotak loginnya tetap kelihatan penuh
+     dan bisa di-scroll kalau perlu — tidak lagi ketutup/kepotong keyboard. */
+  #login-overlay {
+    padding: 14px 14px 0;
+    align-items: flex-start;
+    overflow-y: auto;
+  }
   #login-overlay .login-box {
     max-width: 100%;
-    border-radius: 20px 20px 0 0;
-    padding: 28px 20px 32px;
+    width: 100%;
+    border-radius: 18px;
+    padding: 24px 20px 26px;
+    margin-top: 4px;
+    max-height: calc(100vh - 28px);
+    max-height: calc(100dvh - 28px); /* dvh lebih akurat saat keyboard muncul, di browser yang support */
+    overflow-y: auto;
   }
-  /* Swipe handle indicator di modal */
-  .modal-box-split::before,
-  #login-overlay .login-box::before {
+  /* Swipe handle indicator: cukup untuk modal viewer karya (masih bottom-sheet),
+     TIDAK untuk login-box lagi (karena sudah bukan bottom-sheet). */
+  .modal-box-split::before {
     content: "";
     display: block;
     width: 40px;

@@ -104,6 +104,18 @@ function setupLoginModal() {
     }
   });
 
+  // Jaga-jaga tambahan di HP: begitu keyboard muncul (input NIP di-fokus),
+  // pastikan kotak login tetap kelihatan penuh (scroll ke posisinya) —
+  // beberapa browser HP tetap menggeser sedikit walau sudah diposisikan di atas.
+  const loginInputEl = document.getElementById("login-input");
+  if (loginInputEl) {
+    loginInputEl.addEventListener("focus", () => {
+      setTimeout(() => {
+        loginInputEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 250);
+    });
+  }
+
   document.getElementById("login-modal-close").addEventListener("click", () => overlay.classList.remove("open"));
   overlay.addEventListener("click", e => { if (e.target === overlay) overlay.classList.remove("open"); });
 
