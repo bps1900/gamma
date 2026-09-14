@@ -107,6 +107,41 @@ function setupLoginModal() {
   document.getElementById("login-modal-close").addEventListener("click", () => overlay.classList.remove("open"));
   overlay.addEventListener("click", e => { if (e.target === overlay) overlay.classList.remove("open"); });
 
+  // ====== Helper: panggil API login dengan retry otomatis ======
+  // PENTING (fix bug "NIP tidak ditemukan" padahal server cuma lagi lambat/cold start):
+  // Sebelumnya, kalau fetch gagal (timeout/network/server balikin HTML bukan JSON),
+  // itu langsung ditangkap jadi { error: "network" } lalu DIPERLAKUKAN SAMA seperti
+  // "NIP tidak ditemukan" — padahal belum tentu NIP-nya salah, bisa jadi requestnya
+  // memang belum sempat sampai/dibalas oleh server yang sedang lambat/cold start.
+  //
+  // Sekarang ditandai jelas lewat properti isNetworkError:
+  //  - Kalau server BENERAN membalas dengan error (misal "NIP tidak ditemukan..."
+  //    dari backend), itu error asli -> jangan di-retry, tampilkan apa adanya.
+  //  - Kalau gagal fetch/parse (server belum sempat jawab / lagi cold start / lagi
+  //    sibuk), itu error jaringan -> retry beberapa kali dengan jeda, baru kalau
+  //    semua percobaan tetap gagal, kasih tahu user bahwa ini masalah KONEKSI/SERVER,
+  //    bukan "NIP salah".
+  async function loginRequest(action, payload, retries = 3) {
+    let lastErr = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action, ...payload })
+        });
+        const json = await res.json(); // kalau server balikin HTML, ini throw -> masuk catch
+        return json;
+      } catch (err) {
+        lastErr = err;
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, 800 + attempt * 700));
+          continue;
+        }
+      }
+    }
+    return { error: "network", isNetworkError: true, _detail: lastErr ? lastErr.message : "" };
+  }
+
   async function doUnifiedLogin() {
     const msg = document.getElementById("login-msg");
     const btn = document.getElementById("btn-login-unified");
@@ -126,21 +161,23 @@ function setupLoginModal() {
     btn.innerHTML = `<span class="like-spinner"></span> Memeriksa...`;
     input.disabled = true;
 
-    // Coba admin & pegawai SEKALIGUS (paralel), bukan gantian, supaya lebih cepat.
+    // Kalau lebih dari 4 detik masih memproses, kemungkinan besar server sedang
+    // cold start (bangun dari tidur) — kasih tahu user supaya tidak mengira macet.
+    const slowMsgTimer = setTimeout(() => {
+      if (btn.disabled) {
+        btn.innerHTML = `<span class="like-spinner"></span> Server sedang bangun, mohon tunggu...`;
+      }
+    }, 4000);
+
+    // Coba admin & pegawai SEKALIGUS (paralel), masing-masing dengan retry sendiri.
     // Google Apps Script kadang lambat (cold start), jadi kalau dua request dikirim
     // berurutan, total waktu tunggu jadi dobel. Dengan paralel, waktu tunggu cuma
     // sepanjang request yang paling lambat, bukan jumlah keduanya.
-    const adminPromise = fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "loginAdmin", secret: val })
-    }).then(res => res.json()).catch(() => ({ error: "network" }));
-
-    const pegawaiPromise = fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "loginPegawai", nip: val })
-    }).then(res => res.json()).catch(() => ({ error: "network" }));
+    const adminPromise = loginRequest("loginAdmin", { secret: val });
+    const pegawaiPromise = loginRequest("loginPegawai", { nip: val });
 
     const [adminJson, pegawaiJson] = await Promise.all([adminPromise, pegawaiPromise]);
+    clearTimeout(slowMsgTimer);
 
     if (!adminJson.error) {
       sessionStorage.setItem("gamma_user", JSON.stringify({ role: "admin", secret: val }));
@@ -163,12 +200,22 @@ function setupLoginModal() {
       return;
     }
 
-    // Gagal keduanya: kembalikan tombol & input ke kondisi semula, tampilkan pesan error
+    // ====== Keduanya gagal — bedakan penyebabnya ======
     btn.disabled = false;
     btn.innerHTML = originalBtnHtml;
     input.disabled = false;
-    msg.textContent = "NIP tidak ditemukan. Hubungi admin jika belum terdaftar.";
-    msg.className = "status-msg err";
+
+    const bothNetworkError = adminJson.isNetworkError && pegawaiJson.isNetworkError;
+
+    if (bothNetworkError) {
+      // Ini BUKAN berarti NIP salah — servernya yang belum sempat/bisa merespons.
+      msg.textContent = "Gagal terhubung ke server (mungkin sedang lambat/sibuk). Silakan coba lagi dalam beberapa saat, JANGAN dianggap NIP salah dulu.";
+      msg.className = "status-msg err";
+    } else {
+      // Server benar-benar sempat membalas dan bilang tidak ketemu -> baru ini valid "NIP salah"
+      msg.textContent = "NIP tidak ditemukan. Hubungi admin jika belum terdaftar.";
+      msg.className = "status-msg err";
+    }
   }
 
   document.getElementById("btn-login-unified").addEventListener("click", doUnifiedLogin);
