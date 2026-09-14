@@ -325,19 +325,61 @@ function renderSidebar() {
   });
 }
 
+// Cache data galeri di browser (localStorage) supaya kunjungan BERIKUTNYA tidak
+// perlu menunggu server sama sekali sebelum melihat isi galeri (stale-while-
+// revalidate): data lama langsung ditampilkan, lalu diam-diam diganti dengan
+// data terbaru begitu server selesai merespons. Ini tidak menggantikan
+// perbaikan kecepatan server (lihat Code.gs), tapi bikin pengalaman pengunjung
+// yang pernah buka galeri sebelumnya terasa instan walau server sedang lambat.
+const LOCAL_CACHE_KEY = "gamma_gallery_cache_v1";
+
+function loadLocalCache() {
+  try {
+    const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveLocalCache(data) {
+  try {
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(data));
+  } catch (e) {
+    // localStorage penuh/tidak tersedia (mis. mode private) — tidak apa, abaikan
+  }
+}
+
 async function loadData() {
-  renderLoading();
-  // Kalau setelah 4 detik masih loading, kemungkinan besar ini cold start
-  // (server sedang "bangun"), bukan hang — ganti pesan supaya user tidak
-  // mengira aplikasinya macet.
-  const slowMsgTimer = setTimeout(() => {
+  const cached = loadLocalCache();
+  let usingCache = false;
+
+  if (cached) {
+    // Ada data lama tersimpan di browser -> tampilkan LANGSUNG tanpa loading,
+    // sambil tetap ambil data terbaru dari server di belakang layar.
+    STATE.data = cached;
+    usingCache = true;
+    applyDefaultSettings();
+    renderYearFilter();
+    renderMain();
+  } else {
+    renderLoading();
+  }
+
+  // Kalau setelah 4 detik masih loading (hanya relevan kalau belum ada cache),
+  // kemungkinan besar ini cold start (server sedang "bangun"), bukan hang —
+  // ganti pesan supaya user tidak mengira aplikasinya macet.
+  const slowMsgTimer = usingCache ? null : setTimeout(() => {
     const row = document.querySelector(".loading-row");
     if (row) {
       row.innerHTML = `<span class="spinner"></span> Server sedang bangun dari tidur, mohon tunggu sebentar lagi...`;
     }
   }, 4000);
+
   try {
-    STATE.data = await getDataRetry();
+    const fresh = await getDataRetry();
+    STATE.data = fresh;
+    saveLocalCache(fresh);
     applyDefaultSettings();
     renderYearFilter();
     renderMain();
@@ -346,9 +388,12 @@ async function loadData() {
     // pengguna — cukup pesan yang ramah + tombol untuk coba lagi tanpa
     // perlu refresh manual. Detail asli tetap dicatat ke console untuk debug.
     console.error("Gagal memuat data galeri:", err);
-    renderLoadError();
+    // Kalau sudah sempat menampilkan data dari cache, biarkan pengunjung tetap
+    // lihat data lama itu (lebih baik daripada tiba-tiba diganti pesan error) —
+    // cukup diamkan saja, jangan timpa tampilan yang sudah ada.
+    if (!usingCache) renderLoadError();
   } finally {
-    clearTimeout(slowMsgTimer);
+    if (slowMsgTimer) clearTimeout(slowMsgTimer);
   }
 }
 
