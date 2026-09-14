@@ -327,6 +327,15 @@ function renderSidebar() {
 
 async function loadData() {
   renderLoading();
+  // Kalau setelah 4 detik masih loading, kemungkinan besar ini cold start
+  // (server sedang "bangun"), bukan hang — ganti pesan supaya user tidak
+  // mengira aplikasinya macet.
+  const slowMsgTimer = setTimeout(() => {
+    const row = document.querySelector(".loading-row");
+    if (row) {
+      row.innerHTML = `<span class="spinner"></span> Server sedang bangun dari tidur, mohon tunggu sebentar lagi...`;
+    }
+  }, 4000);
   try {
     STATE.data = await getDataRetry();
     applyDefaultSettings();
@@ -338,6 +347,8 @@ async function loadData() {
     // perlu refresh manual. Detail asli tetap dicatat ke console untuk debug.
     console.error("Gagal memuat data galeri:", err);
     renderLoadError();
+  } finally {
+    clearTimeout(slowMsgTimer);
   }
 }
 
