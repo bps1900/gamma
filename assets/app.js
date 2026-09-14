@@ -333,11 +333,11 @@ async function loadData() {
     renderYearFilter();
     renderMain();
   } catch (err) {
-    document.getElementById("main").innerHTML = `
-      <div class="empty-state">
-        Gagal memuat data. Pastikan API_URL di assets/app.js sudah diisi dengan URL Web App Apps Script yang benar.<br>
-        <small>${err.message}</small>
-      </div>`;
+    // Sengaja tidak menampilkan detail teknis (pesan error mentah/JSON) ke
+    // pengguna — cukup pesan yang ramah + tombol untuk coba lagi tanpa
+    // perlu refresh manual. Detail asli tetap dicatat ke console untuk debug.
+    console.error("Gagal memuat data galeri:", err);
+    renderLoadError();
   }
 }
 
@@ -356,27 +356,75 @@ function applyDefaultSettings() {
   }
 }
 
-// Ambil data galeri dengan percobaan ulang otomatis — penting saat banyak orang
-// buka halaman bersamaan dan sesekali request gagal karena server lagi ramai.
-async function getDataRetry(retries = 2) {
+// Ambil data galeri dengan percobaan ulang otomatis. Ini penting karena Google
+// Apps Script Web App bisa "cold start" (butuh beberapa detik untuk bangun
+// kalau lama tidak diakses) dan juga bisa lambat/gagal sesaat kalau banyak
+// orang buka halaman bersamaan. Jeda antar percobaan sengaja dibuat makin
+// panjang (bukan tetap) supaya total waktu tunggu cukup untuk cold start,
+// tapi tidak bikin pengguna menunggu tanpa kepastian selamanya.
+async function getDataRetry(retries = 4) {
   let lastErr = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(`${API_URL}?action=getData`);
+      // Kalau server balikin halaman HTML (misal error internal Apps Script
+      // atau halaman izin akses) bukan JSON, res.json() akan gagal parse.
+      // Kita tangkap sebagai error biasa supaya tetap masuk alur retry/pesan
+      // ramah, bukan bocor ke pengguna sebagai "Unexpected token '<'".
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       return json;
     } catch (err) {
       lastErr = err;
-      if (attempt < retries) await new Promise(r => setTimeout(r, 500 + attempt * 500));
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 800 + attempt * 700));
+      }
     }
   }
   throw lastErr || new Error("Gagal memuat data.");
 }
 
+// Tampilan loading awal — dibuat berbentuk kerangka kartu (skeleton) yang mirip
+// bentuk galeri asli, supaya terasa lebih hidup/modern dibanding spinner polos,
+// dan pengguna tidak merasa halaman "diam" saat menunggu cold start Apps Script.
 function renderLoading() {
+  const skeletonCards = Array.from({ length: 8 }).map(() => `
+    <div class="skeleton-card">
+      <div class="skeleton-thumb"></div>
+      <div class="skeleton-line skeleton-line-title"></div>
+      <div class="skeleton-line skeleton-line-sub"></div>
+    </div>
+  `).join("");
+
   document.getElementById("main").innerHTML = `
-    <div class="loading-row"><span class="spinner"></span> Memuat galeri karya...</div>`;
+    <div class="katalog-header">
+      <div class="loading-row"><span class="spinner"></span> Menyiapkan galeri karya, mohon tunggu sebentar...</div>
+    </div>
+    <div class="grid">${skeletonCards}</div>
+  `;
+}
+
+// Tampilan gagal muat — pesan ramah untuk pengguna awam (tanpa istilah teknis
+// seperti JSON/error mentah), dilengkapi tombol untuk mencoba lagi tanpa harus
+// me-refresh halaman secara manual.
+function renderLoadError() {
+  document.getElementById("main").innerHTML = `
+    <div class="empty-state load-error-state">
+      <p class="load-error-title">Galeri belum bisa dimuat</p>
+      <p class="load-error-desc">
+        Sepertinya server sedang lambat merespons atau koneksi kamu terputus.
+        Silakan coba lagi dalam beberapa saat.
+      </p>
+      <button class="btn btn-primary" id="btn-retry-load">Coba Lagi</button>
+    </div>`;
+  const btn = document.getElementById("btn-retry-load");
+  if (btn) {
+    btn.addEventListener("click", () => {
+      btn.disabled = true;
+      btn.innerHTML = `<span class="like-spinner"></span> Mencoba lagi...`;
+      loadData();
+    });
+  }
 }
 
 function renderMain() {

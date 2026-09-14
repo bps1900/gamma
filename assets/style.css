@@ -139,6 +139,14 @@ a { color: inherit; }
   font-family: var(--font-body);
   font-weight: 600;
   white-space: nowrap;
+  max-width: 260px;
+}
+
+.dd-toggle-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .dd-caret {
@@ -154,6 +162,7 @@ a { color: inherit; }
   top: calc(100% + 8px);
   left: 0;
   min-width: 100%;
+  max-width: 320px;
   background: var(--putih);
   border: 1px solid var(--garis);
   border-radius: 14px;
@@ -188,6 +197,8 @@ a { color: inherit; }
   color: var(--tinta);
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: background .12s ease, color .12s ease;
 }
 .dd-option:hover { background: var(--biru-muda); color: var(--biru-tua); }
@@ -903,6 +914,60 @@ html:has(.layout), body:has(.layout) {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- Skeleton loading (kerangka kartu saat galeri sedang dimuat) ---------- */
+
+.skeleton-card {
+  background: var(--putih);
+  border: 1px solid var(--garis);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.skeleton-thumb {
+  aspect-ratio: 4/3;
+  background: linear-gradient(90deg, var(--biru-muda) 25%, #f2f7fc 37%, var(--biru-muda) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+.skeleton-line {
+  height: 10px;
+  margin: 12px 14px 0;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--garis) 25%, #eef2f5 37%, var(--garis) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+.skeleton-line-title { width: 70%; }
+.skeleton-line-sub { width: 45%; height: 8px; margin-top: 9px; margin-bottom: 14px; }
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* ---------- Gagal memuat galeri (pesan ramah + tombol coba lagi) ---------- */
+
+.load-error-state {
+  max-width: 420px;
+  margin: 40px auto;
+  padding: 36px 30px;
+}
+.load-error-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tinta);
+  margin: 0 0 8px;
+}
+.load-error-desc {
+  font-size: 13.5px;
+  color: var(--abu);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+.load-error-state .btn { min-width: 140px; }
+
 /* ---------- Login page ---------- */
 
 body:has(.login-wrap) { height: 100vh; overflow: hidden; }
@@ -1012,6 +1077,7 @@ body:has(.login-wrap) { height: 100vh; overflow: hidden; }
 .kf-body {
   padding: 20px 24px 22px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .kf-section-label {
