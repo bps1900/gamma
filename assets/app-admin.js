@@ -140,6 +140,15 @@ function dedupeKontenKeepLast(items) {
   });
 }
 
+// ====== HELPER: Tutup semua modal ======
+// Dipanggil sebelum membuka modal baru, supaya tidak ada 2 modal yang numpuk
+// bersamaan (misal modal Edit Karya belum ke-close terus modal Tampilan Awal
+// dibuka, keduanya jadi tampil di posisi yang sama dan bikin tampilan berantakan).
+function closeAllModals() {
+  document.querySelectorAll(".modal-overlay.open").forEach(el => el.classList.remove("open"));
+  document.body.classList.remove("zoom-screenshot-mode");
+}
+
 // ====== FORM KARYA: Tambah / Edit (via modal popup) ======
 
 const karyaOverlay = document.getElementById("karya-modal-overlay");
@@ -174,6 +183,7 @@ document.getElementById("btn-cancel-edit").addEventListener("click", () => {
 });
 
 function openKaryaModal() {
+  closeAllModals();
   karyaOverlay.classList.add("open");
 }
 
@@ -852,6 +862,7 @@ document.getElementById("monitor-zoom-overlay").addEventListener("click", e => {
 });
 
 async function openMonitorZoom() {
+  closeAllModals();
   const overlay = document.getElementById("monitor-zoom-overlay");
   const body = document.getElementById("monitor-zoom-body");
   const sub = document.getElementById("monitor-zoom-sub");
@@ -916,6 +927,7 @@ document.getElementById("btn-settings-cancel").addEventListener("click", closeSe
 settingsOverlay.addEventListener("click", e => { if (e.target === settingsOverlay) closeSettingsModal(); });
 
 function openSettingsModal() {
+  closeAllModals();
   SETTINGS_FORM = {
     tahun: CURRENT_SETTINGS.tahun || "",
     seriByKategori: { ...(CURRENT_SETTINGS.seriByKategori || {}) }
