@@ -8,6 +8,40 @@ let ADMIN_FILTER_KATEGORI = "Semua Kategori";
 let ADMIN_FILTER_SERI = "Semua Seri";
 let SELECTED_IDS = new Set();
 
+// Ambil data dari server dengan percobaan ulang otomatis. Google Apps Script
+// kadang "cold start" (butuh beberapa detik bangun kalau lama tidak diakses)
+// atau sesaat mengembalikan halaman HTML (bukan JSON) kalau server sedang
+// bermasalah/limit. Tanpa retry ini, error-nya akan muncul mentah ke pengguna
+// seperti "Unexpected token '<'," yang membingungkan. Dengan retry, request
+// dicoba ulang beberapa kali dulu sebelum benar-benar dianggap gagal.
+async function getDataRetry(retries = 3) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`${API_URL}?action=getData`);
+      const json = await res.json(); // kalau server balikin HTML, ini akan throw
+      if (json.error) throw new Error(json.error);
+      return json;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 700 + attempt * 600));
+      }
+    }
+  }
+  throw lastErr || new Error("Gagal memuat data.");
+}
+
+// Pesan ramah untuk ditampilkan ke admin kalau data gagal dimuat setelah semua
+// percobaan ulang habis — dengan tombol coba lagi, tanpa istilah teknis.
+function friendlyLoadErrorHtml(retryFnName) {
+  return `
+    <div style="text-align:center; padding:24px 12px;">
+      <p class="status-msg err" style="margin-bottom:10px;">Gagal memuat data. Server mungkin sedang lambat merespons.</p>
+      <button class="btn btn-secondary" onclick="${retryFnName}()" style="font-size:12.5px; padding:8px 16px;">Coba Lagi</button>
+    </div>`;
+}
+
 document.addEventListener("DOMContentLoaded", init);
 document.getElementById("btn-logout").addEventListener("click", () => {
   sessionStorage.removeItem("gamma_user");
@@ -396,15 +430,14 @@ document.getElementById("btn-add-pegawai").addEventListener("click", async () =>
 async function loadKontenTable() {
   const wrap = document.getElementById("konten-table");
   try {
-    const res = await fetch(`${API_URL}?action=getData`);
-    const json = await res.json();
-    if (json.error) throw new Error(json.error);
+    const json = await getDataRetry();
     CURRENT_SETTINGS = json.settings || { tahun: "", seriByKategori: {} };
     LAST_KONTEN_ITEMS = dedupeKontenKeepLast(json.konten || []);
     populateAllFilters();
     renderKontenTable();
   } catch (err) {
-    wrap.innerHTML = `<p class="status-msg err">${err.message}</p>`;
+    console.error("Gagal memuat daftar karya:", err);
+    wrap.innerHTML = friendlyLoadErrorHtml("loadKontenTable");
   }
 }
 
@@ -414,15 +447,14 @@ async function fadeReloadKontenTable() {
   wrap.classList.add("fade-out");
   await new Promise(r => setTimeout(r, 180));
   try {
-    const res = await fetch(`${API_URL}?action=getData`);
-    const json = await res.json();
-    if (json.error) throw new Error(json.error);
+    const json = await getDataRetry();
     CURRENT_SETTINGS = json.settings || { tahun: "", seriByKategori: {} };
     LAST_KONTEN_ITEMS = dedupeKontenKeepLast(json.konten || []);
     populateAllFilters();
     renderKontenTable();
   } catch (err) {
-    wrap.innerHTML = `<p class="status-msg err">${err.message}</p>`;
+    console.error("Gagal memuat ulang daftar karya:", err);
+    wrap.innerHTML = friendlyLoadErrorHtml("loadKontenTable");
   }
   wrap.classList.remove("fade-out");
 }
@@ -604,8 +636,7 @@ document.getElementById("btn-bulk-delete").addEventListener("click", async () =>
 async function loadPegawaiTable() {
   const wrap = document.getElementById("pegawai-table");
   try {
-    const res = await fetch(`${API_URL}?action=getData`);
-    const json = await res.json();
+    const json = await getDataRetry();
     const items = json.pegawai || [];
     if (items.length === 0) {
       wrap.innerHTML = `<p style="color:var(--abu); font-size:13px;">Belum ada pegawai.</p>`;
@@ -629,7 +660,8 @@ async function loadPegawaiTable() {
       btn.addEventListener("click", () => deletePegawai(btn.dataset.nip, btn));
     });
   } catch (err) {
-    wrap.innerHTML = `<p class="status-msg err">${err.message}</p>`;
+    console.error("Gagal memuat daftar pegawai:", err);
+    wrap.innerHTML = friendlyLoadErrorHtml("loadPegawaiTable");
   }
 }
 
@@ -737,10 +769,7 @@ function getMonitorMatches() {
 }
 
 async function loadMonitorData() {
-  const res = await fetch(`${API_URL}?action=getData`);
-  const json = await res.json();
-  if (json.error) throw new Error(json.error);
-  return json;
+  return await getDataRetry();
 }
 
 // Bangun HTML kartu "Belum Pernah Like" (dipakai baik oleh panel biasa maupun modal Zoom)
