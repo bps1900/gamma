@@ -724,7 +724,7 @@ function slugify(str) {
 function cardHtml(item) {
   const thumbUrl = resolveThumbnail(item);
   const thumb = thumbUrl
-    ? `<img src="${thumbUrl}" alt="${escapeHtml(item.Mahasiswa)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder-icon&quot;>${iconByKategori(item.Kategori).replace(/"/g, "&quot;")}</div>'">`
+    ? `<img src="${thumbUrl}" alt="${escapeHtml(item.Mahasiswa)}" loading="lazy" decoding="async" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder-icon&quot;>${iconByKategori(item.Kategori).replace(/"/g, "&quot;")}</div>'">`
     : `<div class="placeholder-icon">${iconByKategori(item.Kategori)}</div>`;
   const likes = likeCountFor(item.ID);
   const comments = commentsFor(item.ID).length;
@@ -754,18 +754,25 @@ function driveFileId(link) {
   return m ? m[1] : null;
 }
 
-// Kalau Thumbnail kosong, coba generate otomatis dari link Drive
+// Kalau Thumbnail kosong, coba generate otomatis dari link Drive.
+// Dipakai KHUSUS untuk kartu kecil di grid galeri (bukan tampilan modal penuh,
+// yang punya jalur resolusi tinggi sendiri lewat highResImageUrl). Kartu grid
+// lebarnya cuma sekitar 230px, jadi tidak perlu minta gambar seresolusi w1600
+// dari Drive — itu 4-16x lebih berat dari yang sebenarnya kelihatan di layar,
+// dan justru itu yang bikin galeri terasa lambat/berat saat pertama dibuka
+// (puluhan gambar besar diunduh sekaligus). w400 sudah cukup tajam untuk
+// ukuran kartu (termasuk di layar retina/HP), tapi jauh lebih ringan & cepat.
 function resolveThumbnail(item) {
   if (item.Thumbnail) {
     // Kalau kolom Thumbnail diisi link Google Drive (termasuk link PDF/PPT),
     // konversi ke thumbnail generator Drive supaya otomatis ambil halaman 1-nya.
     const thumbId = driveFileId(item.Thumbnail);
-    if (thumbId) return `https://drive.google.com/thumbnail?id=${thumbId}&sz=w1600`;
+    if (thumbId) return `https://drive.google.com/thumbnail?id=${thumbId}&sz=w400`;
     // Kalau bukan link Drive (misal URL gambar langsung dari sumber lain), pakai apa adanya.
     return item.Thumbnail;
   }
   const id = driveFileId(item.EmbedLink);
-  if (id) return `https://drive.google.com/thumbnail?id=${id}&sz=w1600`;
+  if (id) return `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
   return null;
 }
 
