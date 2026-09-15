@@ -1643,6 +1643,8 @@ body.zoom-screenshot-mode #monitor-zoom-body {
     opacity: 0.85;
     margin-top: 1px;
   } /* subtitle tetap ditampilkan di HP, dibuat kecil supaya tidak meluber */
+  .brand-dash { display: none; } /* sembunyikan tanda "–" di HP */
+  .brand-org { display: block; } /* "BPS Provinsi Kepulauan Bangka Belitung" jadi baris baru, tidak terpotong di tengah */
   /* Dropdown Tahun: batasi lebar maksimal supaya tidak mendorong tombol Login
      keluar layar (ini penyebab utama header "meluber" & harus di-zoom-out). */
   .header-year { flex-shrink: 1; min-width: 0; max-width: 40vw; }
