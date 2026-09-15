@@ -342,6 +342,12 @@ function getAvailableYears() {
   return years;
 }
 
+// Di HP (layar sempit), dropdown tahun cukup tampilkan angkanya saja ("2026"),
+// tanpa kata "Tahun " di depan, supaya lebih hemat tempat di header.
+function yearLabelPrefix() {
+  return window.matchMedia("(max-width: 720px)").matches ? "" : "Tahun ";
+}
+
 function renderYearFilter() {
   const wrap = document.getElementById("header-year");
   const years = getAvailableYears();
@@ -360,8 +366,20 @@ function renderYearFilter() {
     STATE.activeTahun = val;
     renderYearFilter();
     renderMain();
-  }, "header", "Tahun ");
+  }, "header", yearLabelPrefix());
 }
+
+// Render ulang label tahun kalau ukuran layar berpindah melewati breakpoint
+// (misal HP diputar ke landscape, atau jendela browser di-resize), supaya
+// prefix "Tahun " otomatis muncul/hilang sesuai lebar layar saat itu.
+let _lastYearIsMobile = null;
+window.addEventListener("resize", () => {
+  const isMobile = window.matchMedia("(max-width: 720px)").matches;
+  if (isMobile !== _lastYearIsMobile) {
+    _lastYearIsMobile = isMobile;
+    if (STATE.data) renderYearFilter();
+  }
+});
 
 function renderSidebar() {
   const sidebar = document.getElementById("sidebar");
