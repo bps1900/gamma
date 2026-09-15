@@ -737,6 +737,9 @@ html:has(.layout), body:has(.layout) {
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--font-body);
   font-weight: 600;
   font-size: 13.5px;
@@ -744,6 +747,8 @@ html:has(.layout), body:has(.layout) {
   border-radius: 10px;
   padding: 10px 18px;
   cursor: pointer;
+  text-decoration: none;
+  box-sizing: border-box;
   transition: filter .12s ease, transform .12s ease;
 }
 .btn:hover { filter: brightness(1.06); }
@@ -1609,18 +1614,18 @@ body.zoom-screenshot-mode #monitor-zoom-body {
     text-overflow: ellipsis;
   }
   .brand-text p {
-    display: block;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
     font-size: 9px;
     line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     max-width: 100%;
     margin-top: 1px;
   }
   /* Dropdown Tahun: batasi lebar maksimal supaya tidak mendorong tombol Login
      keluar layar (ini penyebab utama header "meluber" & harus di-zoom-out). */
-  .header-year { flex-shrink: 1; min-width: 0; max-width: 40vw; }
+  .header-year { flex-shrink: 1; min-width: 0; max-width: 30vw; }
   .header-year .dd-toggle { max-width: 100%; }
   .header-actions { gap: 4px; flex-shrink: 0; }
   .header-actions a, .header-actions button {
@@ -1631,9 +1636,9 @@ body.zoom-screenshot-mode #monitor-zoom-body {
   }
   .header-user { display: none; } /* "Halo, Nama" disembunyikan, cukup tombol Logout */
   .dd.header .dd-toggle {
-    font-size: 11.5px;
-    padding: 7px 10px;
-    gap: 5px;
+    font-size: 10px;
+    padding: 6px 9px;
+    gap: 4px;
   }
   .dd.header .dd-caret { width: 12px; height: 12px; }
 }
@@ -1644,8 +1649,8 @@ body.zoom-screenshot-mode #monitor-zoom-body {
   .brand-logo { width: 22px; height: 22px; }
   .brand-text h1 { font-size: 12.5px; }
   .brand-text p { font-size: 8px; }
-  .header-year { max-width: 34vw; }
-  .dd.header .dd-toggle { font-size: 10.5px; padding: 6px 8px; }
+  .header-year { max-width: 28vw; }
+  .dd.header .dd-toggle { font-size: 9.5px; padding: 5px 7px; }
   .header-actions a, .header-actions button { font-size: 10.5px; padding: 6px 8px; min-height: 32px; }
 
   /* Section title & top3 */
