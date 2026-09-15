@@ -1633,7 +1633,16 @@ body.zoom-screenshot-mode #monitor-zoom-body {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .brand-text p { display: none; } /* sembunyikan subtitle di HP */
+  .brand-text p {
+    display: block;
+    font-size: 9.5px;
+    line-height: 1.25;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    opacity: 0.85;
+    margin-top: 1px;
+  } /* subtitle tetap ditampilkan di HP, dibuat kecil supaya tidak meluber */
   /* Dropdown Tahun: batasi lebar maksimal supaya tidak mendorong tombol Login
      keluar layar (ini penyebab utama header "meluber" & harus di-zoom-out). */
   .header-year { flex-shrink: 1; min-width: 0; max-width: 40vw; }
