@@ -355,6 +355,7 @@ html:has(.layout), body:has(.layout) {
 .main {
   padding: 0 34px 60px;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
 }
 
@@ -1570,7 +1571,8 @@ body.zoom-screenshot-mode #monitor-zoom-body {
   .cat-btn .icon-wrap { width: 26px; height: 26px; }
 
   /* Main */
-  .main { padding: 0 14px 56px; overflow-y: visible; }
+  .main { padding: 0 14px 56px; overflow-y: visible; overflow-x: hidden; }
+  .section-title { padding-right: 0; }
   /* PENTING: sebelumnya .katalog-header ikut "position: sticky; top:0" sama
      seperti .sidebar (baris kategori Infografis/Videografis/dst) di atasnya.
      Kalau dua-duanya nempel di posisi yang sama, hasilnya saling tumpuk/
