@@ -99,7 +99,6 @@ a { color: inherit; }
   font-size: 12.5px;
   opacity: 0.85;
 }
-.brand-org { white-space: nowrap; }
 
 .header-actions {
   display: flex;
@@ -639,6 +638,15 @@ html:has(.layout), body:has(.layout) {
   flex-direction: column;
   border-right: 1px solid var(--garis);
   min-height: 0;
+  /* PENTING (fix tampilan "timpa-timpaan" di HP): kasih background solid +
+     stacking context sendiri. Sebelumnya kolom ini tidak punya background,
+     jadi kalau tinggi konten di dalamnya (gambar + tombol Buka di Drive)
+     dihitung browser sedikit meleset dari container-nya (kerap terjadi di
+     HP saat keyboard/browser bar HP naik-turun), isi kolom SISI (tombol
+     Suka & komentar) bisa keliatan "menembus"/tumpang tindih di atasnya. */
+  position: relative;
+  z-index: 1;
+  background: var(--putih);
 }
 
 .modal-preview-col .modal-frame-wrap {
@@ -654,6 +662,12 @@ html:has(.layout), body:has(.layout) {
   overflow-y: auto;
   min-height: 0;
   max-height: none;
+  /* Sama seperti di atas: background solid + z-index lebih tinggi supaya
+     kolom ini SELALU digambar bersih di atas kolom preview, tidak pernah
+     tembus pandang/numpuk sama gambar & tombol "Buka di Drive". */
+  position: relative;
+  z-index: 2;
+  background: var(--putih);
 }
 
 @media (max-width: 800px) {
@@ -735,12 +749,13 @@ html:has(.layout), body:has(.layout) {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  /* Background solid + posisi relatif sendiri, biar tombol "Buka di Drive"
+     tidak pernah "bocor"/kepotong tumpang tindih sama elemen kolom sebelah. */
+  position: relative;
+  background: var(--putih);
 }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   font-family: var(--font-body);
   font-weight: 600;
   font-size: 13.5px;
@@ -748,8 +763,6 @@ html:has(.layout), body:has(.layout) {
   border-radius: 10px;
   padding: 10px 18px;
   cursor: pointer;
-  text-decoration: none;
-  box-sizing: border-box;
   transition: filter .12s ease, transform .12s ease;
 }
 .btn:hover { filter: brightness(1.06); }
@@ -767,6 +780,12 @@ html:has(.layout), body:has(.layout) {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-wrap: wrap;
+  /* Background solid + posisi relatif sendiri, supaya tombol Suka & jumlah
+     like SELALU digambar bersih, tidak pernah tumpang tindih sama tombol
+     "Buka di Drive" di kolom sebelahnya (bug tampilan HP). */
+  position: relative;
+  background: var(--putih);
 }
 .like-btn {
   display: flex;
@@ -1614,32 +1633,24 @@ body.zoom-screenshot-mode #monitor-zoom-body {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .brand-text p {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-    font-size: 9px;
-    line-height: 1.25;
-    max-width: 100%;
-    margin-top: 1px;
-  }
-  /* Dropdown Tahun: JANGAN dipaksa mengecil (flex-shrink:0) supaya teksnya
-     ("Tahun 2026") selalu utuh kelihatan — brand/subtitle di sebelah kiri yang
-     akan menyusut duluan (h1-nya sudah ellipsis, subtitle sudah wrap 2 baris). */
-  .header-year { flex-shrink: 0; min-width: 0; }
-  .header-year .dd-toggle { max-width: none; }
-  .header-actions { gap: 6px; flex-shrink: 0; }
-  /* Samakan ukuran & gaya tombol Login dengan pill dropdown Tahun */
-  .header-actions a, .header-actions button,
-  .dd.header .dd-toggle {
-    font-size: 12px;
-    padding: 7px 13px;
-    min-height: 34px;
+  .brand-text p { display: none; } /* sembunyikan subtitle di HP */
+  /* Dropdown Tahun: batasi lebar maksimal supaya tidak mendorong tombol Login
+     keluar layar (ini penyebab utama header "meluber" & harus di-zoom-out). */
+  .header-year { flex-shrink: 1; min-width: 0; max-width: 40vw; }
+  .header-year .dd-toggle { max-width: 100%; }
+  .header-actions { gap: 4px; flex-shrink: 0; }
+  .header-actions a, .header-actions button {
+    font-size: 11.5px;
+    padding: 7px 10px;
+    min-height: 36px;
     white-space: nowrap;
-    gap: 5px;
   }
   .header-user { display: none; } /* "Halo, Nama" disembunyikan, cukup tombol Logout */
+  .dd.header .dd-toggle {
+    font-size: 11.5px;
+    padding: 7px 10px;
+    gap: 5px;
+  }
   .dd.header .dd-caret { width: 12px; height: 12px; }
 }
 
@@ -1648,14 +1659,9 @@ body.zoom-screenshot-mode #monitor-zoom-body {
 @media (max-width: 380px) {
   .brand-logo { width: 22px; height: 22px; }
   .brand-text h1 { font-size: 12.5px; }
-  .brand-text p { font-size: 8px; }
-  .header-year { flex-shrink: 0; }
-  .header-actions a, .header-actions button,
-  .dd.header .dd-toggle {
-    font-size: 10.5px;
-    padding: 6px 9px;
-    min-height: 32px;
-  }
+  .header-year { max-width: 34vw; }
+  .dd.header .dd-toggle { font-size: 10.5px; padding: 6px 8px; }
+  .header-actions a, .header-actions button { font-size: 10.5px; padding: 6px 8px; min-height: 32px; }
 
   /* Section title & top3 */
   .section-title { padding-right: 0; flex-direction: column; align-items: flex-start; gap: 8px; }
