@@ -800,9 +800,14 @@ function slugify(str) {
 
 function cardHtml(item) {
   const thumbUrl = resolveThumbnail(item);
+  // Kalau Drive gagal generate thumbnail (thumbUrl null ATAU gambar gagal
+  // dimuat/onerror), otomatis pakai iframe preview Drive sebagai gantinya,
+  // supaya kartu tidak pernah cuma nampilin ikon kosong — admin tidak perlu
+  // upload thumbnail manual lagi untuk kasus ini.
+  const previewUrl = toEmbeddableUrl(item.EmbedLink);
   const thumb = thumbUrl
-    ? `<img src="${thumbUrl}" alt="${escapeHtml(item.Mahasiswa)}" loading="lazy" decoding="async" onerror="this.parentElement.innerHTML='<div class=&quot;placeholder-icon&quot;>${iconByKategori(item.Kategori).replace(/"/g, "&quot;")}</div>'">`
-    : `<div class="placeholder-icon">${iconByKategori(item.Kategori)}</div>`;
+    ? `<img src="${thumbUrl}" alt="${escapeHtml(item.Mahasiswa)}" loading="lazy" decoding="async" onerror="thumbFallbackToIframe(this, '${previewUrl}')">`
+    : `<iframe src="${previewUrl}" loading="lazy"></iframe>`;
   const likes = likeCountFor(item.ID);
   const comments = commentsFor(item.ID).length;
   return `
@@ -817,6 +822,16 @@ function cardHtml(item) {
       </div>
     </div>
   `;
+}
+
+// Dipanggil lewat onerror pada <img> thumbnail kartu galeri: kalau gambar
+// thumbnail gagal dimuat (Drive gagal generate thumbnail untuk file itu),
+// ganti otomatis jadi iframe preview Drive supaya kartu tetap menampilkan
+// isi karya, bukan kosong/ikon placeholder.
+function thumbFallbackToIframe(imgEl, embedUrl) {
+  const wrap = imgEl && imgEl.parentElement;
+  if (!wrap) return;
+  wrap.innerHTML = `<iframe src="${embedUrl}" loading="lazy"></iframe>`;
 }
 
 function iconByKategori(kat) {
