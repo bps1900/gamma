@@ -913,7 +913,15 @@ function openModal(id) {
   if (!item) return;
 
   const overlay = document.getElementById("modal-overlay");
-  const isImageKategori = item.Kategori === "Infografis" || item.Kategori === "Leaflet";
+  // PENTING: Leaflet selalu berupa file PDF (bisa 1 halaman atau lebih), BUKAN
+  // gambar tunggal. Sebelumnya Leaflet ikut dianggap "kategori gambar" sama
+  // seperti Infografis, sehingga modal mencoba render-nya lewat <img> lalu
+  // fallback ke thumbnail Drive (yang cuma menangkap HALAMAN PERTAMA saja).
+  // Kalau thumbnail itu kebetulan berhasil dimuat, modal "berhenti" di situ dan
+  // halaman ke-2/ke-3 PDF tidak pernah kelihatan. Makanya Leaflet sekarang
+  // SELALU pakai iframe preview Drive (sama seperti Videografis/Join Riset),
+  // supaya semua halaman PDF-nya konsisten bisa di-scroll & kelihatan.
+  const isImageKategori = item.Kategori === "Infografis";
   const driveId = driveFileId(item.EmbedLink);
   const directImgUrl = isImageKategori ? highResImageUrl(item) : null;
   const fallbackThumbUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w2000` : null;
