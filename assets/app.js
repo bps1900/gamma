@@ -800,14 +800,10 @@ function slugify(str) {
 
 function cardHtml(item) {
   const thumbUrl = resolveThumbnail(item);
-  // Kalau Drive gagal generate thumbnail (thumbUrl null ATAU gambar gagal
-  // dimuat/onerror), otomatis pakai iframe preview Drive sebagai gantinya,
-  // supaya kartu tidak pernah cuma nampilin ikon kosong — admin tidak perlu
-  // upload thumbnail manual lagi untuk kasus ini.
-  const previewUrl = toEmbeddableUrl(item.EmbedLink);
+  const driveId = driveFileId(item.EmbedLink) || "";
   const thumb = thumbUrl
-    ? `<img src="${thumbUrl}" alt="${escapeHtml(item.Mahasiswa)}" loading="lazy" decoding="async" onerror="thumbFallbackToIframe(this, '${previewUrl}')">`
-    : `<iframe src="${previewUrl}" loading="lazy"></iframe>`;
+    ? `<img src="${thumbUrl}" alt="${escapeHtml(item.Mahasiswa)}" loading="lazy" decoding="async" data-drive-id="${driveId}" data-kat="${escapeHtml(item.Kategori)}" onerror="thumbFallbackPdf(this)">`
+    : `<div class="placeholder-icon">${iconByKategori(item.Kategori)}</div>`;
   const likes = likeCountFor(item.ID);
   const comments = commentsFor(item.ID).length;
   return `
@@ -822,16 +818,6 @@ function cardHtml(item) {
       </div>
     </div>
   `;
-}
-
-// Dipanggil lewat onerror pada <img> thumbnail kartu galeri: kalau gambar
-// thumbnail gagal dimuat (Drive gagal generate thumbnail untuk file itu),
-// ganti otomatis jadi iframe preview Drive supaya kartu tetap menampilkan
-// isi karya, bukan kosong/ikon placeholder.
-function thumbFallbackToIframe(imgEl, embedUrl) {
-  const wrap = imgEl && imgEl.parentElement;
-  if (!wrap) return;
-  wrap.innerHTML = `<iframe src="${embedUrl}" loading="lazy"></iframe>`;
 }
 
 function iconByKategori(kat) {
@@ -928,15 +914,7 @@ function openModal(id) {
   if (!item) return;
 
   const overlay = document.getElementById("modal-overlay");
-  // PENTING: Leaflet selalu berupa file PDF (bisa 1 halaman atau lebih), BUKAN
-  // gambar tunggal. Sebelumnya Leaflet ikut dianggap "kategori gambar" sama
-  // seperti Infografis, sehingga modal mencoba render-nya lewat <img> lalu
-  // fallback ke thumbnail Drive (yang cuma menangkap HALAMAN PERTAMA saja).
-  // Kalau thumbnail itu kebetulan berhasil dimuat, modal "berhenti" di situ dan
-  // halaman ke-2/ke-3 PDF tidak pernah kelihatan. Makanya Leaflet sekarang
-  // SELALU pakai iframe preview Drive (sama seperti Videografis/Join Riset),
-  // supaya semua halaman PDF-nya konsisten bisa di-scroll & kelihatan.
-  const isImageKategori = item.Kategori === "Infografis";
+  const isImageKategori = item.Kategori === "Infografis" || item.Kategori === "Leaflet";
   const driveId = driveFileId(item.EmbedLink);
   const directImgUrl = isImageKategori ? highResImageUrl(item) : null;
   const fallbackThumbUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w2000` : null;
@@ -1360,4 +1338,92 @@ async function submitComment(item) {
     }
     renderKatalog();
   }
+}
+
+// ====== THUMBNAIL DARI HALAMAN 1 PDF (fallback kalau thumbnail Drive gagal) ======
+const PDF_THUMB_PREFIX = "gamma_pdfthumb_v1_";
+const PDFJS_VER = "3.11.174";
+let _pdfjsPromise = null;
+let _pdfQueue = [];
+let _pdfRunning = 0;
+
+function placeholderInto(el, kat) {
+  const box = el.parentElement;
+  if (box) box.innerHTML = `<div class="placeholder-icon">${iconByKategori(kat)}</div>`;
+}
+
+function loadPdfJs() {
+  if (_pdfjsPromise) return _pdfjsPromise;
+  _pdfjsPromise = new Promise((resolve, reject) => {
+    const base = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VER}/`;
+    const s = document.createElement("script");
+    s.src = base + "pdf.min.js";
+    s.onload = () => {
+      // Worker lintas-domain tidak boleh langsung dipakai, jadi dibungkus blob
+      const blob = new Blob([`importScripts("${base}pdf.worker.min.js");`], { type: "text/javascript" });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+      resolve(window.pdfjsLib);
+    };
+    s.onerror = () => { _pdfjsPromise = null; reject(new Error("PDF.js gagal dimuat")); };
+    document.head.appendChild(s);
+  });
+  return _pdfjsPromise;
+}
+
+async function renderPdfFirstPage(driveId) {
+  const res = await fetch(`${API_URL}?action=getPdfFile&id=${encodeURIComponent(driveId)}`);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  if (!/pdf/i.test(json.mime || "")) throw new Error("Bukan PDF");
+
+  const bin = atob(json.data);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+  const pdfjsLib = await loadPdfJs();
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const page = await pdf.getPage(1);
+  const base = page.getViewport({ scale: 1 });
+  const viewport = page.getViewport({ scale: 480 / base.width });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas.toDataURL("image/jpeg", 0.75);
+}
+
+function pumpPdfQueue() {
+  while (_pdfRunning < 2 && _pdfQueue.length) {
+    const job = _pdfQueue.shift();
+    _pdfRunning++;
+    renderPdfFirstPage(job.driveId)
+      .then(url => {
+        try { localStorage.setItem(PDF_THUMB_PREFIX + job.driveId, url); } catch (e) {}
+        job.img.onerror = null;
+        job.img.src = url;
+      })
+      .catch(err => {
+        console.warn("Thumbnail PDF gagal:", err.message);
+        placeholderInto(job.img, job.kat);
+      })
+      .finally(() => { _pdfRunning--; pumpPdfQueue(); });
+  }
+}
+
+function thumbFallbackPdf(img) {
+  img.onerror = null; // cegah loop
+  const driveId = img.dataset.driveId;
+  const kat = img.dataset.kat;
+  if (!driveId) return placeholderInto(img, kat);
+
+  let cached = null;
+  try { cached = localStorage.getItem(PDF_THUMB_PREFIX + driveId); } catch (e) {}
+  if (cached) { img.src = cached; return; }
+
+  _pdfQueue.push({ img, driveId, kat });
+  pumpPdfQueue();
 }
