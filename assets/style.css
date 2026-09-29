@@ -569,6 +569,15 @@ html:has(.layout), body:has(.layout) {
   border: none;
   pointer-events: none;
 }
+.card-thumb.thumb-loading img { opacity: 0; }
+.card-thumb.thumb-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--biru-muda) 25%, #f2f7fc 37%, var(--biru-muda) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
 .card-thumb .placeholder-icon svg { width: 34px; height: 34px; color: var(--biru); opacity: 0.55; }
 .card-body { padding: 13px 14px 15px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .card-title { font-size: 14.5px; font-weight: 600; line-height: 1.3; margin: 0; }

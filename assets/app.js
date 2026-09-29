@@ -1347,8 +1347,38 @@ let _pdfjsPromise = null;
 let _pdfQueue = [];
 let _pdfRunning = 0;
 
+// fetch JSON dengan batas waktu, supaya kartu tidak menggantung selamanya
+async function fetchJsonTimeout(url, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Cadangan kedua: thumbnail kecil dari Drive yang diambil lewat server
+async function getServerThumb(driveId) {
+  const json = await fetchJsonTimeout(`${API_URL}?action=getThumb&id=${encodeURIComponent(driveId)}`, 20000);
+  if (json.error) throw new Error(json.error);
+  return `data:${json.mime || "image/png"};base64,${json.data}`;
+}
+
+// Urutan: render halaman 1 PDF (paling tajam) -> thumbnail server -> gagal
+async function resolveThumbFallback(driveId) {
+  try {
+    return await renderPdfFirstPage(driveId);
+  } catch (err) {
+    console.warn("Render PDF gagal, coba thumbnail server:", err.message);
+  }
+  return await getServerThumb(driveId);
+}
+
 function placeholderInto(el, kat) {
   const box = el.parentElement;
+  if (box) box.classList.remove("thumb-loading");
   if (box) box.innerHTML = `<div class="placeholder-icon">${iconByKategori(kat)}</div>`;
 }
 
@@ -1371,8 +1401,7 @@ function loadPdfJs() {
 }
 
 async function renderPdfFirstPage(driveId) {
-  const res = await fetch(`${API_URL}?action=getPdfFile&id=${encodeURIComponent(driveId)}`);
-  const json = await res.json();
+  const json = await fetchJsonTimeout(`${API_URL}?action=getPdfFile&id=${encodeURIComponent(driveId)}`, 25000);
   if (json.error) throw new Error(json.error);
   if (!/pdf/i.test(json.mime || "")) throw new Error("Bukan PDF");
 
@@ -1400,14 +1429,16 @@ function pumpPdfQueue() {
   while (_pdfRunning < 2 && _pdfQueue.length) {
     const job = _pdfQueue.shift();
     _pdfRunning++;
-    renderPdfFirstPage(job.driveId)
+    resolveThumbFallback(job.driveId)
       .then(url => {
         try { localStorage.setItem(PDF_THUMB_PREFIX + job.driveId, url); } catch (e) {}
-        job.img.onerror = null;
+        job.img.onerror = () => placeholderInto(job.img, job.kat);
         job.img.src = url;
+        const box = job.img.parentElement;
+        if (box) box.classList.remove("thumb-loading");
       })
       .catch(err => {
-        console.warn("Thumbnail PDF gagal:", err.message);
+        console.warn("Thumbnail gagal total:", err.message);
         placeholderInto(job.img, job.kat);
       })
       .finally(() => { _pdfRunning--; pumpPdfQueue(); });
@@ -1422,8 +1453,26 @@ function thumbFallbackPdf(img) {
 
   let cached = null;
   try { cached = localStorage.getItem(PDF_THUMB_PREFIX + driveId); } catch (e) {}
-  if (cached) { img.src = cached; return; }
+  if (cached) {
+    img.onerror = () => placeholderInto(img, kat);
+    img.src = cached;
+    return;
+  }
 
+  // Cadangan #1 (paling cepat): endpoint gambar lh3 — sering berhasil untuk file
+  // publik walau endpoint "thumbnail" Drive gagal. Kalau ini juga gagal,
+  // onerror memanggil fungsi ini lagi dan lanjut ke cadangan server/PDF di bawah.
+  if (img.dataset.stage !== "lh3") {
+    img.dataset.stage = "lh3";
+    img.onerror = () => thumbFallbackPdf(img);
+    img.src = `https://lh3.googleusercontent.com/d/${driveId}=w400`;
+    return;
+  }
+  img.onerror = null;
+
+  // Sembunyikan ikon gambar rusak, tampilkan animasi loading selagi cadangan jalan
+  const box = img.parentElement;
+  if (box) box.classList.add("thumb-loading");
   _pdfQueue.push({ img, driveId, kat });
   pumpPdfQueue();
 }
