@@ -1551,22 +1551,47 @@ th { color: var(--abu); font-weight: 600; font-size: 11px; text-transform: upper
    box internal) supaya halaman jadi scroll biasa dan seluruh konten tampil
    penuh — biar tools screenshot full-page (GoFullPage, dll) bisa nangkep
    semuanya utuh tanpa keulang/kepotong. */
+html:has(body.zoom-screenshot-mode) {
+  height: auto !important;
+  overflow: visible !important;
+}
 body.zoom-screenshot-mode {
   height: auto !important;
-  overflow: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
 }
+/* Sembunyikan layout admin di belakang, supaya tinggi dokumen HANYA
+   ditentukan oleh isi monitoring (bukan 100vh). Ini kunci agar screenshot
+   full-page (GoFullPage, dll) menangkap semua nama sampai bawah. */
+body.zoom-screenshot-mode #admin-view,
+body.zoom-screenshot-mode .admin-wrap-wide {
+  display: none !important;
+}
+/* Overlay jadi elemen biasa di alur dokumen (bukan fixed/absolute),
+   sehingga tinggi halaman otomatis mengikuti tinggi isinya. */
 body.zoom-screenshot-mode #monitor-zoom-overlay {
-  position: absolute;
+  position: relative;
+  inset: auto;
+  display: flex;
   align-items: flex-start;
-  min-height: 100%;
-  padding: 24px 16px;
+  justify-content: center;
+  height: auto;
+  min-height: 0;
+  padding: 24px 16px 40px;
+  background: #E9EEF3;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 body.zoom-screenshot-mode .monitor-zoom-box {
   height: auto;
   max-height: none;
+  overflow: visible;
 }
-body.zoom-screenshot-mode #monitor-zoom-body {
+body.zoom-screenshot-mode #monitor-zoom-body,
+body.zoom-screenshot-mode #monitor-zoom-body.kf-body {
+  overflow: visible;
   overflow-y: visible;
+  flex: none;
 }
 
 /* ---------- Responsive ---------- */
