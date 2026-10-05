@@ -987,6 +987,8 @@ function openModal(id) {
   if (previewImg) {
     setupImagePreviewFallback(previewImg);
     setupImageZoom(previewImg);
+    // Kalau ternyata file-nya PDF (bisa multi-halaman), ganti gambar jadi viewer iframe
+    if (driveId) upgradePdfPreview(driveId, embedUrl);
   }
   const loginLink = document.getElementById("modal-login-link");
   if (loginLink) {
@@ -1103,6 +1105,43 @@ async function deleteCommentAction(item, commentId) {
 function closeModal() {
   document.getElementById("modal-overlay").classList.remove("open");
   document.getElementById("modal-overlay").innerHTML = "";
+}
+
+// Cache tipe file per ID Drive supaya modal yang sama tidak minta ke server berulang
+const FILE_MIME_PREFIX = "gamma_mime_v1_";
+const _mimeMem = {};
+
+async function getFileMime(driveId) {
+  if (_mimeMem[driveId]) return _mimeMem[driveId];
+  try {
+    const c = localStorage.getItem(FILE_MIME_PREFIX + driveId);
+    if (c) { _mimeMem[driveId] = c; return c; }
+  } catch (e) {}
+  const json = await fetchJsonTimeout(`${API_URL}?action=getFileInfo&id=${encodeURIComponent(driveId)}`, 15000);
+  if (json.error || !json.mime) throw new Error(json.error || "Tipe file tidak diketahui");
+  _mimeMem[driveId] = json.mime;
+  try { localStorage.setItem(FILE_MIME_PREFIX + driveId, json.mime); } catch (e) {}
+  return json.mime;
+}
+
+// Kalau file di Drive adalah PDF, ganti <img> (hanya halaman 1) dengan iframe
+// viewer Drive supaya semua halaman bisa di-scroll. Kalau gagal cek, biarkan gambar.
+async function upgradePdfPreview(driveId, embedUrl) {
+  try {
+    const mime = await getFileMime(driveId);
+    if (!/pdf/i.test(mime)) return;
+    const img = document.getElementById("modal-preview-img");
+    // Pastikan modal yang sama masih terbuka (belum ditutup/ganti karya)
+    if (!img || img.dataset.embedUrl !== embedUrl) return;
+    const iframe = document.createElement("iframe");
+    iframe.src = embedUrl;
+    iframe.setAttribute("allow", "autoplay");
+    iframe.setAttribute("allowfullscreen", "true");
+    img.replaceWith(iframe);
+    document.getElementById("frame-loading")?.remove();
+  } catch (err) {
+    console.warn("Cek tipe file gagal, tetap pakai gambar:", err.message);
+  }
 }
 
 // Rantai fallback: link resolusi tinggi -> thumbnail besar -> iframe Drive
