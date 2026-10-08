@@ -83,12 +83,18 @@ function iconExclaim() {
 }
 
 // ====== INIT ======
-document.addEventListener("DOMContentLoaded", () => {
+function gammaInit() {
   renderHeader();
   renderSidebar();
   loadData();
   setupLoginModal();
-});
+}
+// app.js dimuat dinamis oleh loader di index.html, bisa jadi DOM sudah siap
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", gammaInit);
+} else {
+  gammaInit();
+}
 
 function setupLoginModal() {
   const overlay = document.getElementById("login-overlay");

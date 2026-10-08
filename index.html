@@ -10,7 +10,41 @@
 <link rel="preconnect" href="https://drive.google.com">
 <link rel="preconnect" href="https://lh3.googleusercontent.com">
 <link rel="dns-prefetch" href="https://drive.google.com">
-<link rel="stylesheet" href="assets/style.css?v=2">
+<style>html.gamma-loading body{visibility:hidden}</style>
+<script>
+/* Loader versi otomatis: ambil version.json (selalu fresh, tanpa cache) lalu
+   muat style.css & app.js dengan ?v=<versi>. Jadi tiap ada update cukup ubah
+   angka di version.json, pengunjung lama otomatis dapat file terbaru tanpa Ctrl+Shift+R. */
+(function () {
+  var FALLBACK = "6";
+  var root = document.documentElement;
+  root.classList.add("gamma-loading");
+  var started = false;
+  function show() { root.classList.remove("gamma-loading"); }
+  setTimeout(show, 3500); // jaga-jaga supaya halaman tidak pernah tersembunyi selamanya
+  function start(v) {
+    if (started) return;
+    started = true;
+    var l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "assets/style.css?v=" + v;
+    l.onload = l.onerror = show;
+    document.head.appendChild(l);
+    function addScript() {
+      var s = document.createElement("script");
+      s.src = "assets/app.js?v=" + v;
+      document.body.appendChild(s);
+    }
+    if (document.body) addScript();
+    else document.addEventListener("DOMContentLoaded", addScript);
+  }
+  var timer = setTimeout(function () { start(FALLBACK); }, 3000);
+  fetch("version.json?t=" + Date.now(), { cache: "no-store" })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { clearTimeout(timer); start(String(j.v || FALLBACK)); })
+    .catch(function () { clearTimeout(timer); start(FALLBACK); });
+})();
+</script>
 </head>
 <body>
 
@@ -53,6 +87,5 @@
   </div>
 </div>
 
-<script src="assets/app.js?v=6"></script>
 </body>
 </html>
