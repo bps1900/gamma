@@ -1454,7 +1454,7 @@ function loadPdfJs() {
 }
 
 async function renderPdfFirstPage(driveId) {
-  const json = await fetchJsonTimeout(`${API_URL}?action=getPdfFile&id=${encodeURIComponent(driveId)}`, 25000);
+  const json = await fetchJsonTimeout(`${API_URL}?action=getPdfFile&id=${encodeURIComponent(driveId)}`, 90000);
   if (json.error) throw new Error(json.error);
   if (!/pdf/i.test(json.mime || "")) throw new Error("Bukan PDF");
 
