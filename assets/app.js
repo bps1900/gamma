@@ -1405,14 +1405,14 @@ async function getServerThumb(driveId) {
   return `data:${json.mime || "image/png"};base64,${json.data}`;
 }
 
-// Urutan: render halaman 1 PDF (paling tajam) -> thumbnail server -> gagal
+// Urutan: thumbnail server (kecil & cepat) -> render halaman 1 PDF (berat) -> gagal
 async function resolveThumbFallback(driveId) {
   try {
-    return await renderPdfFirstPage(driveId);
+    return await getServerThumb(driveId);
   } catch (err) {
-    console.warn("Render PDF gagal, coba thumbnail server:", err.message);
+    console.warn("Thumbnail server gagal, coba render PDF:", err.message);
   }
-  return await getServerThumb(driveId);
+  return await renderPdfFirstPage(driveId);
 }
 
 function placeholderInto(el, kat) {
