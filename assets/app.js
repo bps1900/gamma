@@ -1423,8 +1423,16 @@ async function resolveThumbFallback(driveId) {
 
 function placeholderInto(el, kat) {
   const box = el.parentElement;
-  if (box) box.classList.remove("thumb-loading");
-  if (box) box.innerHTML = `<div class="placeholder-icon">${iconByKategori(kat)}</div>`;
+  if (!box) return;
+  box.classList.remove("thumb-loading");
+  // Cadangan terakhir: kalau semua cara ambil gambar gagal, tampilkan pratinjau
+  // Drive (iframe, halaman 1) langsung di kartu — sama seperti yang tampil di modal.
+  const driveId = el.dataset ? el.dataset.driveId : "";
+  if (driveId) {
+    box.innerHTML = `<iframe src="https://drive.google.com/file/d/${driveId}/preview" loading="lazy" tabindex="-1" scrolling="no" title="Pratinjau"></iframe>`;
+    return;
+  }
+  box.innerHTML = `<div class="placeholder-icon">${iconByKategori(kat)}</div>`;
 }
 
 function loadPdfJs() {
