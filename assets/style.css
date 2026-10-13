@@ -1818,7 +1818,7 @@ body.zoom-screenshot-mode #monitor-zoom-body.kf-body {
 }
 
 
-/* ---------- Tombol melayang transparan: Golden Heart ---------- */
+/* ---------- Tombol melayang transparan: The Golden Heart ---------- */
 .appreciator-btn {
   width: 100%;
   display: flex;
@@ -1883,4 +1883,27 @@ body.zoom-screenshot-mode #monitor-zoom-body.kf-body {
 .appr-columns .leaderboard-list:nth-child(2) .lb-row .lb-rank {
   background: var(--biru-muda);
   color: var(--biru-tua);
+}
+
+/* Hati rating: abu-abu sebagai dasar, merah menutup sesuai proporsi */
+.gh-hearts { display: flex; gap: 3px; flex-shrink: 0; }
+.gh-heart {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  color: #E3E8ED;
+  display: inline-block;
+}
+.gh-heart svg { width: 20px; height: 20px; display: block; }
+.gh-heart-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  overflow: hidden;
+  color: #E53935;
+}
+.gh-heart-fill svg { width: 20px; height: 20px; }
+@media (max-width: 720px) {
+  .gh-heart, .gh-heart svg, .gh-heart-fill svg { width: 16px; height: 16px; }
 }

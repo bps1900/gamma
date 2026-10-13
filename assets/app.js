@@ -13,7 +13,7 @@ let STATE = {
   activeKategori: KATEGORI[0].key,
   activeTahun: null, // diisi otomatis dengan tahun terbaru dari database setelah data dimuat, atau tahun default dari Admin
   seriByKategori: {}, // seri default per kategori, dari pengaturan Admin
-  showAppreciator: false, // true = area utama menampilkan Golden Heart
+  showAppreciator: false, // true = area utama menampilkan The Golden Heart
   activeSeriMap: {} // seri yang sedang aktif per kategori (diingat per kategori supaya tidak reset saat pindah tab)
 };
 
@@ -399,7 +399,7 @@ function renderSidebar() {
       </button>`
     ).join("")}
     <button class="appreciator-btn ${STATE.showAppreciator ? "active" : ""}" id="btn-top-appreciator">
-      <span class="appreciator-icon">${iconTrophy()}</span> Golden Heart
+      <span class="appreciator-icon">${iconTrophy()}</span> The Golden Heart
     </button>
   `;
 
@@ -1577,12 +1577,27 @@ function openTopAppreciator() {
   renderAppreciator();
 }
 
+function heartSvg() {
+  return `<svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 2.7 4.5 6.4 4.5c2 0 3.7 1.1 4.6 2.8l1 1.7 1-1.7c.9-1.7 2.6-2.8 4.6-2.8 3.7 0 5.5 3.8 4 7.2C19.5 16.4 12 21 12 21z" fill="currentColor"/></svg>`;
+}
+
+// 5 hati merah, terisi proporsional terhadap jumlah like (peringkat 1 = penuh 5 hati)
+function heartsHtml(count, max) {
+  const value = max > 0 ? (count / max) * 5 : 0;
+  let out = "";
+  for (let i = 0; i < 5; i++) {
+    const fill = Math.max(0, Math.min(1, value - i));
+    out += `<span class="gh-heart">${heartSvg()}<span class="gh-heart-fill" style="width:${Math.round(fill * 100)}%">${heartSvg()}</span></span>`;
+  }
+  return `<div class="gh-hearts" title="${count} like">${out}</div>`;
+}
+
 function appreciatorRowHtml(r, rank, max) {
   return `
     <div class="lb-row">
       <div class="lb-rank">${rank}</div>
       <div class="lb-info"><p class="t">${escapeHtml(r.nama)}</p></div>
-      <div class="lb-bar-wrap" style="width:70px;"><div class="lb-bar" style="width:${Math.round((r.count / max) * 100)}%"></div></div>
+      ${heartsHtml(r.count, max)}
       <div class="lb-count">${r.count}</div>
     </div>`;
 }
@@ -1597,7 +1612,7 @@ function renderAppreciator() {
 
   main.innerHTML = `
     <div class="katalog-header">
-      <div class="section-title"><h2>Golden Heart</h2></div>
+      <div class="section-title"><h2>The Golden Heart</h2></div>
       <p class="section-sub">10 pegawai yang paling banyak memberi like${STATE.activeTahun ? ` · Tahun ${escapeHtml(STATE.activeTahun)}` : ""}</p>
     </div>
     ${
