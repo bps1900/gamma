@@ -1907,3 +1907,13 @@ body.zoom-screenshot-mode #monitor-zoom-body.kf-body {
 @media (max-width: 720px) {
   .gh-heart, .gh-heart svg, .gh-heart-fill svg { width: 16px; height: 16px; }
 }
+
+/* Peringkat 1: hati emas (The Golden Heart) */
+.lb-gold .gh-heart-fill {
+  color: #F5B800;
+  filter: drop-shadow(0 0 3px rgba(245,184,0,0.65));
+}
+.lb-gold {
+  border-color: #F3D77A;
+  background: linear-gradient(100deg, #FFFBEA 0%, var(--putih) 60%);
+}

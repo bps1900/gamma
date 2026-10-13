@@ -1594,7 +1594,7 @@ function heartsHtml(count, max) {
 
 function appreciatorRowHtml(r, rank, max) {
   return `
-    <div class="lb-row">
+    <div class="lb-row ${rank === 1 ? "lb-gold" : ""}">
       <div class="lb-rank">${rank}</div>
       <div class="lb-info"><p class="t">${escapeHtml(r.nama)}</p></div>
       ${heartsHtml(r.count, max)}
