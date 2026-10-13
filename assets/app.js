@@ -397,7 +397,13 @@ function renderSidebar() {
         <span class="icon-wrap">${k.icon}</span> ${k.label}
       </button>`
     ).join("")}
+    <button class="appreciator-btn" id="btn-top-appreciator">
+      <span class="appreciator-icon">${iconTrophy()}</span> TOP Appreciator
+    </button>
   `;
+
+  const apprBtn = document.getElementById("btn-top-appreciator");
+  if (apprBtn) apprBtn.addEventListener("click", openTopAppreciator);
 
   sidebar.querySelectorAll(".cat-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -1528,4 +1534,71 @@ function thumbFallbackPdf(img) {
   if (box) box.classList.add("thumb-loading");
   _pdfQueue.push({ img, driveId, kat });
   pumpPdfQueue();
+}
+
+
+// ====== TOP APPRECIATOR: 10 pegawai yang paling banyak memberi like ======
+// Hanya menghitung like ke karya yang MASIH ada di Konten (baris sampah seperti
+// KaryaId "0" atau karya yang sudah dihapus diabaikan), dan 1 pegawai + 1 karya
+// dihitung sekali walau ada baris ganda di sheet Likes.
+function computeTopAppreciators(limit) {
+  const data = STATE.data || {};
+  const tahunAktif = STATE.activeTahun;
+  const validIds = new Set(
+    (data.konten || [])
+      .filter(k => !tahunAktif || String(k.Tahun || "").trim() === tahunAktif)
+      .map(k => String(k.ID))
+  );
+  const namaByNip = {};
+  (data.pegawai || []).forEach(p => { namaByNip[String(p.NIP).trim()] = p.Nama; });
+
+  const perNip = new Map(); // nip -> { nama, set karyaId }
+  (data.likes || []).forEach(l => {
+    const kid = String(l.KaryaId);
+    if (!validIds.has(kid)) return;
+    const nip = String(l.NIP).trim();
+    if (!perNip.has(nip)) perNip.set(nip, { nama: namaByNip[nip] || l.Nama || nip, ids: new Set() });
+    perNip.get(nip).ids.add(kid);
+  });
+
+  return [...perNip.values()]
+    .map(v => ({ nama: v.nama, count: v.ids.size }))
+    .sort((a, b) => (b.count - a.count) || String(a.nama).localeCompare(String(b.nama)))
+    .slice(0, limit);
+}
+
+function openTopAppreciator() {
+  if (!STATE.data) return;
+  const overlay = document.getElementById("modal-overlay");
+  const top = computeTopAppreciators(10);
+  const max = top.length ? top[0].count : 1;
+
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:min(520px,100%);">
+      <div class="modal-header">
+        <div>
+          <h3>TOP Appreciator</h3>
+          <p>10 pegawai yang paling banyak memberi like${STATE.activeTahun ? ` · Tahun ${escapeHtml(STATE.activeTahun)}` : ""}</p>
+        </div>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div style="padding:18px 22px 22px; overflow-y:auto;">
+        ${
+          top.length === 0
+            ? `<div class="empty-state">Belum ada like.</div>`
+            : `<div class="leaderboard-list" style="max-width:none;">
+                ${top.map((r, i) => `
+                  <div class="lb-row">
+                    <div class="lb-rank">${i + 1}</div>
+                    <div class="lb-info"><p class="t">${escapeHtml(r.nama)}</p></div>
+                    <div class="lb-bar-wrap" style="width:70px;"><div class="lb-bar" style="width:${Math.round((r.count / max) * 100)}%"></div></div>
+                    <div class="lb-count">${r.count}</div>
+                  </div>`).join("")}
+              </div>`
+        }
+      </div>
+    </div>`;
+  overlay.classList.add("open");
+  document.getElementById("modal-close").addEventListener("click", closeModal);
+  overlay.onclick = e => { if (e.target === overlay) closeModal(); };
 }
