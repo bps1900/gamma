@@ -13,6 +13,7 @@ let STATE = {
   activeKategori: KATEGORI[0].key,
   activeTahun: null, // diisi otomatis dengan tahun terbaru dari database setelah data dimuat, atau tahun default dari Admin
   seriByKategori: {}, // seri default per kategori, dari pengaturan Admin
+  showAppreciator: false, // true = area utama menampilkan Golden Heart
   activeSeriMap: {} // seri yang sedang aktif per kategori (diingat per kategori supaya tidak reset saat pindah tab)
 };
 
@@ -393,12 +394,12 @@ function renderSidebar() {
     <div class="sidebar-label">Kategori Karya</div>
     ${KATEGORI.map(
       k => `
-      <button class="cat-btn ${STATE.activeKategori === k.key ? "active" : ""}" data-cat="${k.key}">
+      <button class="cat-btn ${!STATE.showAppreciator && STATE.activeKategori === k.key ? "active" : ""}" data-cat="${k.key}">
         <span class="icon-wrap">${k.icon}</span> ${k.label}
       </button>`
     ).join("")}
-    <button class="appreciator-btn" id="btn-top-appreciator">
-      <span class="appreciator-icon">${iconTrophy()}</span> TOP Appreciator
+    <button class="appreciator-btn ${STATE.showAppreciator ? "active" : ""}" id="btn-top-appreciator">
+      <span class="appreciator-icon">${iconTrophy()}</span> Golden Heart
     </button>
   `;
 
@@ -408,6 +409,7 @@ function renderSidebar() {
   sidebar.querySelectorAll(".cat-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       STATE.activeKategori = btn.dataset.cat;
+      STATE.showAppreciator = false;
       renderSidebar();
       renderMain();
     });
@@ -573,7 +575,8 @@ function renderLoadError() {
 }
 
 function renderMain() {
-  renderKatalog();
+  if (STATE.showAppreciator) renderAppreciator();
+  else renderKatalog();
 }
 
 // Kalau ada karya duplikat (kategori + seri + nama sama persis), ambil baris PALING TERAKHIR
@@ -1569,36 +1572,42 @@ function computeTopAppreciators(limit) {
 
 function openTopAppreciator() {
   if (!STATE.data) return;
-  const overlay = document.getElementById("modal-overlay");
+  STATE.showAppreciator = true;
+  renderSidebar();
+  renderAppreciator();
+}
+
+function appreciatorRowHtml(r, rank, max) {
+  return `
+    <div class="lb-row">
+      <div class="lb-rank">${rank}</div>
+      <div class="lb-info"><p class="t">${escapeHtml(r.nama)}</p></div>
+      <div class="lb-bar-wrap" style="width:70px;"><div class="lb-bar" style="width:${Math.round((r.count / max) * 100)}%"></div></div>
+      <div class="lb-count">${r.count}</div>
+    </div>`;
+}
+
+// Tampil di area utama (menggantikan grid karya): peringkat 1-5 kiri, 6-10 kanan.
+function renderAppreciator() {
+  const main = document.getElementById("main");
   const top = computeTopAppreciators(10);
   const max = top.length ? top[0].count : 1;
+  const left = top.slice(0, 5);
+  const right = top.slice(5, 10);
 
-  overlay.innerHTML = `
-    <div class="modal-box" style="width:min(520px,100%);">
-      <div class="modal-header">
-        <div>
-          <h3>TOP Appreciator</h3>
-          <p>10 pegawai yang paling banyak memberi like${STATE.activeTahun ? ` · Tahun ${escapeHtml(STATE.activeTahun)}` : ""}</p>
-        </div>
-        <button class="modal-close" id="modal-close">&times;</button>
-      </div>
-      <div style="padding:18px 22px 22px; overflow-y:auto;">
-        ${
-          top.length === 0
-            ? `<div class="empty-state">Belum ada like.</div>`
-            : `<div class="leaderboard-list" style="max-width:none;">
-                ${top.map((r, i) => `
-                  <div class="lb-row">
-                    <div class="lb-rank">${i + 1}</div>
-                    <div class="lb-info"><p class="t">${escapeHtml(r.nama)}</p></div>
-                    <div class="lb-bar-wrap" style="width:70px;"><div class="lb-bar" style="width:${Math.round((r.count / max) * 100)}%"></div></div>
-                    <div class="lb-count">${r.count}</div>
-                  </div>`).join("")}
-              </div>`
-        }
-      </div>
-    </div>`;
-  overlay.classList.add("open");
-  document.getElementById("modal-close").addEventListener("click", closeModal);
-  overlay.onclick = e => { if (e.target === overlay) closeModal(); };
+  main.innerHTML = `
+    <div class="katalog-header">
+      <div class="section-title"><h2>Golden Heart</h2></div>
+      <p class="section-sub">10 pegawai yang paling banyak memberi like${STATE.activeTahun ? ` · Tahun ${escapeHtml(STATE.activeTahun)}` : ""}</p>
+    </div>
+    ${
+      top.length === 0
+        ? `<div class="empty-state">Belum ada like.</div>`
+        : `<div class="appr-columns">
+            <div class="leaderboard-list" style="max-width:none;">${left.map((r, i) => appreciatorRowHtml(r, i + 1, max)).join("")}</div>
+            <div class="leaderboard-list" style="max-width:none;">${right.map((r, i) => appreciatorRowHtml(r, i + 6, max)).join("")}</div>
+          </div>`
+    }
+  `;
+  main.scrollTo({ top: 0 });
 }
